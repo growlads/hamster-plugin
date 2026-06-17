@@ -14,7 +14,7 @@ coding, your phone earns on the side.
 **Claude Code**
 
 ```bash
-claude plugin marketplace add growlads/hamster
+claude plugin marketplace add growlads/hamster-plugin
 claude plugin install hamster@hamster
 ```
 
@@ -23,7 +23,7 @@ Restart Claude Code — that's the whole setup.
 **Codex**
 
 ```bash
-codex plugin marketplace add growlads/hamster
+codex plugin marketplace add growlads/hamster-plugin
 codex plugin add hamster@hamster
 ```
 

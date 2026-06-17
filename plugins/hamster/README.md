@@ -30,7 +30,7 @@ server-side. See the [repo README](../../README.md) for the full picture.
 **Claude Code**
 
 ```sh
-claude plugin marketplace add growlads/hamster
+claude plugin marketplace add growlads/hamster-plugin
 claude plugin install hamster@hamster
 ```
 
@@ -39,7 +39,7 @@ Restart Claude Code — that's the whole setup.
 **Codex**
 
 ```sh
-codex plugin marketplace add growlads/hamster
+codex plugin marketplace add growlads/hamster-plugin
 codex plugin add hamster@hamster
 ```
 
