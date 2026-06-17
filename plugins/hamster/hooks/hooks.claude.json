@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/qr/start-welcome.js\"",
+            "commandWindows": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/qr/start-welcome.js\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/qr/start-nudge.js\"",
+            "commandWindows": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/qr/start-nudge.js\""
+          }
+        ]
+      }
+    ]
+  }
+}

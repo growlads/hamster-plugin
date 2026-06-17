@@ -1,0 +1,9 @@
+# Shipped defaults for the Hamster plugin.
+#
+# Lowest-priority fallback: a ~/.hamster/config file and the HAMSTER_API_URL /
+# HAMSTER_TOKEN environment variables both override anything set here. This file
+# is sourced as a plain KEY=value shell file — keep it LF-only (see .gitattributes).
+
+# The production Hamster backend. For local backend dev, override with
+#   export HAMSTER_API_URL=http://localhost:8787
+HAMSTER_API_URL=https://hamster.win

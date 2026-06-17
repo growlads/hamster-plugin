@@ -1,0 +1,15 @@
+{
+  "name": "hamster",
+  "description": "Hamster — a Claude Code plugin that lets you win rewards while your agent codes.",
+  "owner": {
+    "name": "Growl",
+    "email": "sahil@withgrowl.com"
+  },
+  "plugins": [
+    {
+      "name": "hamster",
+      "source": "./plugins/hamster",
+      "description": "Win rewards while your agent codes. A QR card for a live rewarded game appears on every prompt — scan it with your phone (any OS), install the game, and earn real USD as you hit in-game goals. /wallet shows your earnings."
+    }
+  ]
+}

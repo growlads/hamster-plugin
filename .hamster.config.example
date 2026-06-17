@@ -1,0 +1,16 @@
+# Hamster plugin config — usually you DON'T need this file.
+#
+# The plugin auto-generates ~/.hamster/config on first run: it mints your token
+# and writes both keys for you. This template is only for manual overrides
+# (e.g. local backend dev, or pinning a specific token).
+#
+# It's a plain KEY=value shell file the plugin sources. Precedence is:
+#   environment variable  >  ~/.hamster/config  >  shipped plugin defaults
+# (the shipped default for HAMSTER_API_URL is https://hamster.win).
+
+# The Hamster backend. Override the shipped default only for local backend dev:
+# HAMSTER_API_URL=http://localhost:8787
+
+# Your per-user token. Normally minted and written automatically on first run;
+# set it here only to pin a specific one.
+# HAMSTER_TOKEN=replace-with-your-token

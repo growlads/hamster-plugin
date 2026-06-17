@@ -1,0 +1,14 @@
+# Keep shell scripts and JS LF-only so the plugin's bash handlers and Node
+# scripts run correctly on macOS/Linux regardless of the committer's OS.
+*.sh   text eol=lf
+*.mjs  text eol=lf
+*.js   text eol=lf
+*.html text eol=lf
+
+# Sourced as a plain KEY=value shell file by the bash handlers — must be LF so a
+# trailing CR never corrupts the values (e.g. HAMSTER_API_URL).
+hamster.defaults text eol=lf
+
+# Codex launch-banner wrapper templates — written verbatim onto the codex shim,
+# so the POSIX wrapper (.sh) MUST stay LF (a CRLF shebang breaks on macOS/Linux).
+*.asset text eol=lf

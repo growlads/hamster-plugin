@@ -1,0 +1,251 @@
+#!/usr/bin/env node
+/*
+ * nudge.js — QR nudge hook brain.
+ *
+ * On every prompt (UserPromptSubmit), show a small QR for the featured game so
+ * the user can start playing/earning while the agent works. The featured game is
+ * served from a short-TTL local cache (see `featured`) so re-showing it on every
+ * prompt doesn't put a backend round-trip on the critical path of each prompt.
+ *
+ * Output contract: the QR rides in `systemMessage`, which is shown to the user
+ * without becoming model context. We never set decision:block, and stdout only
+ * contains the JSON hook response. (For UserPromptSubmit, plain stdout would be
+ * fed to the model as context — so we emit ONLY the JSON response, never the QR.)
+ *
+ * Layout note: systemMessage renders into a possibly-narrow prompt-notice area.
+ * We default to a side-by-side card (QR left, short copy right). The copy is
+ * brief authored marketing — NOT the game's long store description — so the card
+ * stays compact and balanced. If we can detect that the panel is too narrow to
+ * fit the card, we fall back to a vertical stack (headline, QR, copy) so the
+ * copy column never collapses into a squeezed ribbon.
+ *
+ * Reads the hook JSON (with session_id) from stdin. Stays silent on any problem
+ * — a nudge must never disrupt session startup.
+ */
+"use strict";
+
+const path = require("path");
+const fs = require("fs");
+const os = require("os");
+const { renderQrBlock, displayWidth } = require(path.join(__dirname, "qr-block.js"));
+
+// Prefer IPv4 for the backend call. Node's fetch (undici) otherwise tries IPv6
+// first and, on hosts without working IPv6, stalls ~5s on Happy-Eyeballs before
+// falling back — which alone could blow the fetch timeout below and leave the
+// nudge blank. Best-effort; ignore if the runtime predates this API.
+try { require("dns").setDefaultResultOrder("ipv4first"); } catch { /* node < 16.4 */ }
+
+function done(obj) {
+  if (obj) process.stdout.write(JSON.stringify(obj));
+  process.exit(0);
+}
+
+function readStdin() {
+  return new Promise((resolve) => {
+    let data = "";
+    let settled = false;
+    const finish = () => { if (!settled) { settled = true; resolve(data); } };
+    process.stdin.on("data", (c) => (data += c));
+    process.stdin.on("end", finish);
+    process.stdin.on("error", finish);
+    setTimeout(finish, 1500); // never hang the prompt
+  });
+}
+
+// fetch with a hard timeout. The cap has to clear a *cold* round trip: a fresh
+// Node process per hook (no connection reuse) over HTTPS to a possibly-cold
+// Cloudflare worker that itself makes a cold Besitos call. Measured ~5–6s cold
+// vs ~1.5s once the server-side cache (~2 min) is warm. 5s was too tight against
+// the production backend and the nudge silently never showed; 9s clears it while
+// still bounding how long the first prompt of a session can wait.
+async function fetchWithTimeout(url, opts, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, Object.assign({}, opts, { signal: ctrl.signal }));
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// Local cache so the QR can ride EVERY prompt without a backend round-trip each
+// time. TTL mirrors the backend's ~2 min offer cache: within it we re-show the
+// same game (and the same /go link — fine, since the offer is resolved at scan
+// time, not when the QR is drawn). The cache is global (not per-session); a
+// single user token means concurrent sessions share the same featured game.
+const FEATURED_TTL_MS = 120000;
+const cachePath = () => path.join(os.tmpdir(), "hamster-nudge", "featured.json");
+
+function readCache() {
+  try {
+    const { ts, game } = JSON.parse(fs.readFileSync(cachePath(), "utf8"));
+    if (game && game.url) return { ts: Number(ts) || 0, game };
+  } catch { /* missing/corrupt → no cache */ }
+  return null;
+}
+
+function writeCache(game) {
+  try {
+    fs.mkdirSync(path.dirname(cachePath()), { recursive: true });
+    fs.writeFileSync(cachePath(), JSON.stringify({ ts: Date.now(), game }));
+  } catch { /* best effort */ }
+}
+
+async function fetchFeatured(ms) {
+  const api = (process.env.HAMSTER_API_URL || "http://localhost:8787").replace(/\/+$/, "");
+  const token = process.env.HAMSTER_TOKEN || "";
+  if (!token) return null;
+  try {
+    const r = await fetchWithTimeout(api + "/v1/featured", { headers: { Authorization: "Bearer " + token } }, ms);
+    if (!r.ok) return null;
+    const g = (await r.json()).game || {};
+    const url = g.go_url || g.click_url;
+    if (!url) return null;
+    const reward = typeof g.reward_usd_total === "number" ? g.reward_usd_total.toFixed(2) : null;
+    // We intentionally ignore the game's own store description here — the nudge
+    // copy is short, authored marketing (see buildNudge), not the long blurb.
+    return { title: g.title || "a rewarded game", url, reward };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The featured game, served from the short-TTL cache. Fresh cache → instant, no
+ * network. Stale-but-present → a quick refresh (3s) and fall back to the stale
+ * entry if the backend is slow, so a prompt is never delayed much. No cache at
+ * all → one full cold fetch (9s; the only prompt that pays the cold-start cost).
+ * Always fails soft to null (→ silent nudge).
+ */
+async function featured() {
+  const cached = readCache();
+  if (cached && Date.now() - cached.ts < FEATURED_TTL_MS) return cached.game;
+
+  const fresh = await fetchFeatured(cached ? 3000 : 9000);
+  if (fresh) { writeCache(fresh); return fresh; }
+  return cached ? cached.game : null;
+}
+
+(async () => {
+  // Drain stdin (the hook pipes its JSON in) but we no longer gate on it — the
+  // QR rides on every prompt now, not once per session.
+  await readStdin();
+
+  const game = await featured();
+  if (!game) done(null);               // not configured / unreachable → silent
+
+  // systemMessage shows to the user; no decision:block, so the prompt proceeds.
+  // Lead with a newline so the nudge starts on its own line under the notice.
+  done({ systemMessage: "\n" + buildNudge(game) });
+})();
+
+/** Greedy word-wrap to `width` columns. */
+function wrap(text, width) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = "";
+  for (const w of words) {
+    if (!cur) cur = w;
+    else if ((cur + " " + w).length <= width) cur += " " + w;
+    else { lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+// Best-effort display width. The hook's stdout is a pipe, so these are usually
+// unset — when unknown we return 0 and let the caller default to the (compact)
+// side-by-side card rather than guess a narrow panel.
+function termWidth() {
+  const c = process.stdout.columns || process.stderr.columns || Number(process.env.COLUMNS) || 0;
+  return Number.isFinite(c) && c > 0 ? c : 0;
+}
+
+// ── styling: brand palette (landing.ts), applied only when color is on ──
+const NO_COLOR = !!process.env.NO_COLOR;
+const E = (s) => "\x1b[" + s + "m", RZ = "\x1b[0m";
+const sty = (codes) => (s) => (NO_COLOR ? s : E(codes) + s + RZ);
+const goldB = sty("1;38;2;255;182;39"); // bright gold — frame title, wallet command
+const gold = sty("38;2;240;138;36");    // deep gold — frame, CTA arrow
+const cream = sty("38;2;240;234;222");  // warm off-white — body
+const creamB = sty("1;38;2;245;240;232"); // bold warm white — game name
+const dim = sty("38;2;146;136;122");    // muted warm gray — kicker, pitch
+
+const vw = displayWidth; // visible width (ignores ANSI)
+const pad = (s, w) => s + " ".repeat(Math.max(0, w - vw(s)));
+
+const RW = 26; // right-column copy width
+const PITCH = "Play a few minutes on your phone and earn real cash while I keep working.";
+
+/** Styled copy beside the QR. Brand lives in the frame title (not repeated here),
+ *  and the reward amount is intentionally left off the card. */
+function copyLines(game) {
+  return [
+    dim("EARN WHILE I CODE"),
+    "",
+    creamB(game.title),
+    "",
+    ...wrap(PITCH, RW).map(dim),
+    "",
+    gold("▸ ") + cream("Scan to start playing"),
+    goldB("/hamster:wallet") + cream(" → earnings"),
+  ];
+}
+
+/** Two-column body: QR left, copy vertically centered on the right. */
+function twoCol(qr, copy) {
+  const qrW = Math.max(...qr.map(vw)), copyW = Math.max(RW, ...copy.map(vw));
+  const rows = Math.max(qr.length, copy.length), top = Math.floor((rows - copy.length) / 2);
+  const gap = "   ", out = [];
+  for (let i = 0; i < rows; i++) {
+    const left = i < qr.length ? pad(qr[i], qrW) : " ".repeat(qrW);
+    const ri = i - top, rt = ri >= 0 && ri < copy.length ? copy[ri] : "";
+    out.push(left + gap + pad(rt, copyW));
+  }
+  return out;
+}
+
+/** Gold-framed rounded card with the brand in the top edge. */
+function card(qr, copy) {
+  const lines = twoCol(qr, copy);
+  const W = Math.max(...lines.map(vw));
+  const innerW = W + 2; // 1-col padding each side
+  const V = gold("│");
+  const title = goldB("hamster") + gold(" · play");
+  const right = innerW - vw(title) - 3;
+  const top = gold("╭─") + " " + title + " " + gold("─".repeat(Math.max(0, right)) + "╮");
+  const blank = V + " ".repeat(innerW) + V;
+  const out = [top, blank];
+  for (const l of lines) out.push(V + " " + pad(l, W) + " " + V);
+  out.push(blank, gold("╰" + "─".repeat(innerW) + "╯"));
+  return out.join("\n");
+}
+
+/** Narrow fallback: brand headline, QR, then copy — stacked so nothing is squeezed. */
+function stacked(qr, copy) {
+  const p = "  ";
+  const out = [p + goldB("hamster") + dim(" · play") + cream("  —  earn while I code"), ""];
+  for (const l of qr) out.push(p + l);
+  out.push("");
+  for (const l of copy) out.push(p + l);
+  return out.join("\n");
+}
+
+/**
+ * Compose the nudge. Default to the framed side-by-side card; only when we can
+ * positively detect that the panel is too narrow do we fall back to the stack.
+ */
+function buildNudge(game) {
+  // Brand-gold two-tone QR with the green $ badge. Color on by default; NO_COLOR
+  // (or a host that can't render truecolor) falls back to a plain QR that still
+  // scans and shows the $. margin 0 = flush; the dark terminal is the quiet zone.
+  const qr = renderQrBlock(game.url, { color: !NO_COLOR, twoTone: !NO_COLOR, badge: true, margin: 0 }).split("\n");
+  const copy = copyLines(game);
+
+  const qrW = Math.max(...qr.map(vw));
+  const copyW = Math.max(RW, ...copy.map(vw));
+  const cardW = qrW + 3 + copyW + 4; // gap + borders + side padding
+  const avail = termWidth();
+
+  return avail && cardW > avail ? stacked(qr, copy) : card(qr, copy);
+}

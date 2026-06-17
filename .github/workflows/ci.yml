@@ -1,0 +1,34 @@
+# CI for the Hamster plugin: run the Node test suite on every push / PR.
+#
+# The plugin ships as plain Node scripts — no build step, no dependencies — so
+# this just exercises `node --test` across every Node version we claim to
+# support (the README states Node >= 18). Explicit file paths keep discovery
+# identical on all three runtimes.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    name: test (node ${{ matrix.node }})
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Run tests
+        run: >-
+          node --test
+          plugins/hamster/hooks/hooks.test.js
+          plugins/hamster/scripts/provision.test.js

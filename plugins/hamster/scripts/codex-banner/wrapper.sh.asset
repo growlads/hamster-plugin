@@ -1,0 +1,13 @@
+#!/bin/sh
+# ===== HAMSTER-CODEX-BANNER =====
+# Reversible hamster wrapper around the npm-installed codex shim.
+# Prints the banner from "__HAMSTER_BANNER_FILE__" (if present) then exec's the
+# pristine shim backed up at "__HAMSTER_BACKUP__".
+# Restore: copy that backup back over this file (or run the codex-banner uninstaller).
+__HAMSTER_BANNER_FILE="__HAMSTER_BANNER_FILE__"
+if [ -r "$__HAMSTER_BANNER_FILE" ]; then
+  printf '\n'
+  cat "$__HAMSTER_BANNER_FILE"
+  printf '\n'
+fi
+exec "__HAMSTER_BACKUP__" "$@"

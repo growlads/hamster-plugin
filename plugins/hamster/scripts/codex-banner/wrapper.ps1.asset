@@ -1,0 +1,20 @@
+#!/usr/bin/env pwsh
+# ===== HAMSTER-CODEX-BANNER =====
+# Reversible hamster wrapper around the npm-installed codex PowerShell shim.
+# Prints the banner from "__HAMSTER_BANNER_FILE__" (if present) then delegates
+# to the pristine shim backed up at "__HAMSTER_BACKUP__".
+# Restore: copy that backup back over this file (or run the codex-banner uninstaller).
+$__hamsterBannerFile = "__HAMSTER_BANNER_FILE__"
+if (Test-Path -LiteralPath $__hamsterBannerFile) {
+  try {
+    Write-Host ""
+    Get-Content -LiteralPath $__hamsterBannerFile -Encoding UTF8 | ForEach-Object { Write-Host $_ }
+    Write-Host ""
+  } catch {}
+}
+if ($MyInvocation.ExpectingInput) {
+  $input | & "__HAMSTER_BACKUP__" @args
+} else {
+  & "__HAMSTER_BACKUP__" @args
+}
+exit $LASTEXITCODE
