@@ -43,7 +43,7 @@ function box(lines, opts) {
  *  first prompt). */
 function buildWelcome() {
   return box([
-    greenChip(" ● LIVE ") + "  " + goldB("hamster") + dim(" · play"),
+    greenChip("● LIVE ") + "  " + goldB("hamster") + dim(" · play"),
     "",
     creamB("Win real cash while I work."),
     dim("Next prompt: a QR to scan, play & earn."),
