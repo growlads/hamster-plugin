@@ -35,9 +35,10 @@ const { buildWelcome } = require(path.join(__dirname, "..", "qr", "welcome-card.
 
 const MARKER = "HAMSTER-CODEX-BANNER";
 const BACKUP_TAG = "hamster-orig";
-// Default banner = the exact same card the Claude Code SessionStart hook shows
-// (welcome.js), so the launch banner reads identically across both tools.
-const DEFAULT_BANNER = buildWelcome();
+// Default banner = the same card the Claude Code SessionStart hook shows
+// (welcome.js), but with the value line naming "Codex" — this is the Codex
+// launch banner, so it reads true on this surface.
+const DEFAULT_BANNER = buildWelcome({ agent: "Codex" });
 
 const isWin = process.platform === "win32";
 

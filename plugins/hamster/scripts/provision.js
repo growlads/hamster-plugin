@@ -173,6 +173,7 @@ async function main() {
 }
 
 module.exports = {
+  firstNonEmpty,
   mergeConfig,
   resolveApiUrl,
   currentToken,

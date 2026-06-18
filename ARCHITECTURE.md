@@ -39,6 +39,46 @@ included.
 
 ---
 
+## Installing the plugin locally (development)
+
+Both Claude Code and Codex **snapshot** the plugin — they copy it into a local cache
+at install time rather than running it from the source tree — so local edits are not
+live: **re-snapshot after every change and start a new session** (neither runtime
+applies changes to the session already running). The snapshot copies the entire
+working tree, **including uncommitted and untracked files**, so you can test local
+changes without committing.
+
+Install from **this repo** (`growlads/hamster-plugin`), not the older sibling
+`growlads/hamster` clone. The marketplace name is `hamster`, so the plugin is
+`hamster@hamster`. **`node plugins/hamster/scripts/dev-reinstall.js`** automates all
+of the steps below for both runtimes (idempotent); the manual flow is:
+
+- **Point the marketplace at this directory** once per runtime (remove a stale
+  `hamster` marketplace first if one points at github or the old clone):
+  `claude plugin marketplace add <hamster-plugin path>` /
+  `codex plugin marketplace add <hamster-plugin path>`.
+- **Re-snapshot after edits:** `claude plugin uninstall hamster && claude plugin
+  install hamster@hamster`; `codex plugin remove hamster@hamster && codex plugin add
+  hamster@hamster`.
+- **Codex gates hooks on trust** — the next interactive `codex` prompts to
+  review/trust the hooks, else they're silently skipped.
+
+Caches (plugin contents flattened to the cache root):
+`~/.claude/plugins/cache/hamster/hamster/<version>/` and
+`~/.codex/plugins/cache/hamster/hamster/local/`. The `codex-banner` launch wrapper is
+**outside** the plugin system, so a plugin uninstall doesn't remove it — see
+`scripts/codex-banner/install.js`.
+
+**Welcome copy is single-sourced — refresh the Codex banner after editing it.** The
+greeting text lives once in `scripts/qr/welcome-card.js` (`buildWelcome()`): Claude's
+`welcome.js` renders it live, while the Codex launch banner snapshots it into
+`~/.hamster/codex-banner.txt` at install time (only the `agent` name in the value line
+differs per surface). Edit copy in `welcome-card.js` only — but because the banner is a
+snapshot outside the plugin, a plugin re-snapshot won't update it: re-run
+`node scripts/codex-banner/install.js install` to refresh an installed banner.
+
+---
+
 ## Two ways to play
 
 ### A. QR / nudge — cross-platform, the default path

@@ -126,10 +126,22 @@ async function featured() {
   return cached ? cached.game : null;
 }
 
-(async () => {
+// Pause flag (set by launch.js from env > ~/.hamster/config). Treat "1"/"true"
+// (case-insensitive) as paused; anything else as active.
+function isPaused(env = process.env) {
+  const v = String(env.HAMSTER_PAUSED || "").trim().toLowerCase();
+  return v === "1" || v === "true";
+}
+
+async function run() {
   // Drain stdin (the hook pipes its JSON in) but we no longer gate on it — the
   // QR rides on every prompt now, not once per session.
   await readStdin();
+
+  // Paused → emit nothing, and skip the backend fetch entirely (no point paying
+  // a network round-trip when we won't draw the card). Toggled with
+  // /hamster:toggle-hamster; takes effect next prompt since config is read fresh.
+  if (isPaused()) done(null);
 
   const game = await featured();
   if (!game) done(null);               // not configured / unreachable → silent
@@ -137,7 +149,14 @@ async function featured() {
   // systemMessage shows to the user; no decision:block, so the prompt proceeds.
   // Lead with a newline so the nudge starts on its own line under the notice.
   done({ systemMessage: "\n" + buildNudge(game) });
-})();
+}
+
+// Auto-run when launched as the QR brain (launch.js require()s this module, and
+// the hook also runs it directly). Tests set HAMSTER_NO_AUTORUN to import the
+// pure helpers (isPaused, buildNudge) without firing the stdin/network flow.
+if (!process.env.HAMSTER_NO_AUTORUN) run();
+
+module.exports = { isPaused, buildNudge, copyLines };
 
 /** Greedy word-wrap to `width` columns. */
 function wrap(text, width) {
@@ -165,30 +184,36 @@ function termWidth() {
 const NO_COLOR = !!process.env.NO_COLOR;
 const E = (s) => "\x1b[" + s + "m", RZ = "\x1b[0m";
 const sty = (codes) => (s) => (NO_COLOR ? s : E(codes) + s + RZ);
-const goldB = sty("1;38;2;255;182;39"); // bright gold — frame title, wallet command
+const goldB = sty("1;38;2;255;182;39"); // bright gold — frame title
 const gold = sty("38;2;240;138;36");    // deep gold — frame, CTA arrow
 const cream = sty("38;2;240;234;222");  // warm off-white — body
 const creamB = sty("1;38;2;245;240;232"); // bold warm white — game name
 const dim = sty("38;2;146;136;122");    // muted warm gray — kicker, pitch
+const cashB = sty("1;38;2;46;204;113"); // cash green + bold — reward amount (qr-block GREEN)
 
 const vw = displayWidth; // visible width (ignores ANSI)
 const pad = (s, w) => s + " ".repeat(Math.max(0, w - vw(s)));
 
 const RW = 26; // right-column copy width
-const PITCH = "Play a few minutes on your phone and earn real cash while I keep working.";
+const PITCH = "Play a few minutes on your phone for real cash.";
+// The wallet auto-triggers on the word "wallet" (see skills/wallet) — so we
+// reference it as a plain word, never as a /command that would double-register.
+const WALLET_HINT = "Check your wallet ~15 min after you play for your credits.";
 
-/** Styled copy beside the QR. Brand lives in the frame title (not repeated here),
- *  and the reward amount is intentionally left off the card. */
+/** Styled copy beside the QR. Brand lives in the frame title (not repeated here).
+ *  The reward amount rides as a high-contrast cash line when the backend gave us
+ *  one; it's omitted gracefully when game.reward is null/absent. */
 function copyLines(game) {
   return [
-    dim("EARN WHILE I CODE"),
+    dim("EARN WHILE YOU CODE"),
     "",
     creamB(game.title),
+    ...(game.reward ? [cashB("Earn up to $" + game.reward)] : []),
     "",
     ...wrap(PITCH, RW).map(dim),
     "",
-    gold("▸ ") + cream("Scan to start playing"),
-    goldB("/hamster:wallet") + cream(" → earnings"),
+    gold("▸ ") + cream("Scan to start"),
+    ...wrap(WALLET_HINT, RW).map(dim),
   ];
 }
 
@@ -224,7 +249,7 @@ function card(qr, copy) {
 /** Narrow fallback: brand headline, QR, then copy — stacked so nothing is squeezed. */
 function stacked(qr, copy) {
   const p = "  ";
-  const out = [p + goldB("hamster") + dim(" · play") + cream("  —  earn while I code"), ""];
+  const out = [p + goldB("hamster") + dim(" · play") + cream("  —  earn while you code"), ""];
   for (const l of qr) out.push(p + l);
   out.push("");
   for (const l of copy) out.push(p + l);

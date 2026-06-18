@@ -5,5 +5,6 @@
     "name": "Growl",
     "email": "sahil@withgrowl.com"
   },
+  "skills": "./skills/",
   "hooks": "./hooks/hooks.codex.json"
 }

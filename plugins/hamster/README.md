@@ -5,7 +5,8 @@
 A Claude Code plugin. It greets you when your session starts, then shows a small
 QR card for a live rewarded game on **every** prompt (works on **any OS**, never
 blocks your prompt) — scan it with your phone, install the game, and earn real USD
-as you hit in-game goals. `/wallet` shows your earnings.
+as you hit in-game goals. Ask about your **wallet** to see your earnings; check it
+~15 min after you play for your credits to land.
 
 The plugin never talks to any offerwall directly — it only calls the Hamster
 backend, which handles all of the offer/rewards logic and partner credentials
@@ -18,9 +19,11 @@ server-side. See the [repo README](../../README.md) for the full picture.
 | **welcome** | A short "installed" greeting when your session starts. | any |
 | **QR nudge** | Every prompt shows a scannable QR card for a live game (non-blocking). | any |
 | **`/wallet`** | Balance, lifetime earnings, recent rewards. | any |
+| **`/hamster:toggle-hamster`** | Pause the per-prompt QR (no more cards) — run it again to resume. | any |
 
 `/wallet` is namespaced as `/hamster:wallet`; enable a bare `/wallet` with the
-[installer below](#optional-bare-commands).
+[installer below](#optional-bare-commands). The **wallet** also opens when you
+just ask about your balance, earnings, or rewards in plain language.
 
 > Additional play surfaces (an on-demand QR, a browser hub, and a Mac iPhone-mirroring
 > flow) are built but disabled in this release — see [`disabled/`](disabled/).
@@ -117,7 +120,11 @@ See [`.hamster.config.example`](../../.hamster.config.example) for the file form
 
 - Just **send a prompt** — the nudge shows a QR card on every one. Scan it with
   your phone's camera, install the game, and play while Claude works.
-- **`/wallet`** (or `/hamster:wallet`) — balance, lifetime, recent rewards.
+- **`/wallet`** (or `/hamster:wallet`, or just ask about your **wallet**) —
+  balance, lifetime, recent rewards. Credits land ~15 min after you play, so
+  check your wallet a little after a session.
+- **`/hamster:toggle-hamster`** — pause the per-prompt QR when you want a quiet
+  prompt; run it again to bring the cards back. Takes effect on your next prompt.
 
 ## Troubleshooting
 

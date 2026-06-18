@@ -16,7 +16,7 @@
 
 const os = require("os");
 const path = require("path");
-const { loadEnvFile, currentToken, resolveApiUrl, main: provision } = require("../provision.js");
+const { firstNonEmpty, loadEnvFile, currentToken, resolveApiUrl, main: provision } = require("../provision.js");
 
 // The Codex DESKTOP APP sets CODEX_INTERNAL_ORIGINATOR_OVERRIDE="Codex Desktop"
 // (the npm Codex CLI sets CODEX_MANAGED_BY_NPM instead; Claude Code sets CLAUDECODE).
@@ -49,8 +49,14 @@ async function launch(brainModule) {
       if (!apiUrl && userConfig.HAMSTER_API_URL) apiUrl = String(userConfig.HAMSTER_API_URL).replace(/\/+$/, "");
     }
 
+    // Pause flag: env > ~/.hamster/config (same precedence as URL/token). Export
+    // it so both brains (nudge + welcome) see one resolved value. The nudge gates
+    // the QR on it; welcome shows its PAUSED variant. Toggled via toggle-pause.js.
+    const paused = firstNonEmpty(process.env.HAMSTER_PAUSED, userConfig.HAMSTER_PAUSED);
+
     process.env.HAMSTER_API_URL = apiUrl || "";
     process.env.HAMSTER_TOKEN = token || "";
+    process.env.HAMSTER_PAUSED = paused;
 
     require(brainModule);
   } catch {

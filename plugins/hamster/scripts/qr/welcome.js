@@ -62,6 +62,13 @@ function alreadyGreeted(sessionId) {
   // once at startup), just can't guard against a duplicate hook source.
   if (sessionId && alreadyGreeted(sessionId)) done(null);
 
+  // Pause state comes from launch.js (env > ~/.hamster/config). "1"/"true"
+  // (case-insensitive) → the muted PAUSED variant; anything else → LIVE.
+  const v = String(process.env.HAMSTER_PAUSED || "").trim().toLowerCase();
+  const paused = v === "1" || v === "true";
+
   // Lead with a newline so the card starts on its own line under the notice.
-  done({ systemMessage: "\n" + buildWelcome() });
+  // This hook is Claude-only (Codex has no SessionStart — it uses the launch
+  // banner in codex-banner/install.js), so the value line names "Claude".
+  done({ systemMessage: "\n" + buildWelcome({ paused, agent: "Claude" }) });
 })();

@@ -6,6 +6,38 @@ is **rendering a scannable QR across wildly different surfaces** (terminal, IDE
 webview, Codex TUI). The notes below are non-obvious gotchas — most cost real
 debugging to discover. Read before touching the nudge/QR or adding a surface.
 
+## Developing locally: snapshot model (re-snapshot on every edit)
+**Neither runtime runs the plugin from this working tree — both copy ("snapshot") it
+into a cache at install/add time, so source edits are NOT live.** After any edit you
+must re-snapshot **and** start a new session (changes never apply to the session
+that's already running). The snapshot copies the **whole working tree — uncommitted
+and untracked files included** (verified), so you don't have to commit to test a local
+change.
+
+**Shortcut: `node scripts/dev-reinstall.js`** does everything below for both runtimes
+(idempotent; `claude`/`codex` arg to target one, `--no-banner` to skip the banner
+refresh). The manual steps:
+
+- **Install from THIS repo.** The workspace has two sibling clones: `hamster-plugin/`
+  (this repo, `growlads/hamster-plugin`) is the live one; the older `hamster/`
+  (`growlads/hamster`, the pre-split combined repo) is a trap — don't install from it.
+  The marketplace name is `hamster`, so the plugin is `hamster@hamster`.
+- **Point the marketplace at this dir (once per runtime).** Remove a stale `hamster`
+  marketplace first if one points elsewhere (github, or `hamster/`):
+  - Claude: `claude plugin marketplace remove hamster` → `claude plugin marketplace add <abs path to hamster-plugin>`
+  - Codex: `codex plugin marketplace remove hamster` → `codex plugin marketplace add <abs path to hamster-plugin>`
+- **Re-snapshot after edits (the everyday command):**
+  - Claude: `claude plugin uninstall hamster && claude plugin install hamster@hamster` (or `claude plugin update hamster@hamster`)
+  - Codex: `codex plugin remove hamster@hamster && codex plugin add hamster@hamster`
+- **Codex gates hooks on trust:** the next interactive `codex` shows "Hooks need
+  review" — pick Review/Trust, else hamster's hooks are silently skipped.
+- **Verify a snapshot took** at the cache (plugin contents are *flattened* to the cache
+  root — the marketplace's `source: ./plugins/hamster` is not preserved as a nested
+  path): Claude `~/.claude/plugins/cache/hamster/hamster/<version>/`, Codex
+  `~/.codex/plugins/cache/hamster/hamster/local/`.
+- The `codex-banner` launch wrapper lives **outside** the plugin system, so a plugin
+  uninstall leaves it behind — manage it separately via `scripts/codex-banner/install.js`.
+
 ## Which config belongs to which agent
 - **Each runtime gets its OWN hooks file, named by its OWN manifest — and there is NO
   bare `hooks/hooks.json`.** Claude Code reads `.claude-plugin/plugin.json`
@@ -27,6 +59,13 @@ debugging to discover. Read before touching the nudge/QR or adding a surface.
   Shipping NO bare `hooks/hooks.json` (each runtime points at its own explicit file via
   its manifest) keeps `SessionStart` off Codex under either behavior. `hooks/hooks.test.js`
   asserts no `hooks.json` exists.
+- **Skills: Claude auto-discovers `skills/`; Codex must DECLARE it.** Neither
+  `plugin.json` needs a `skills` field for Claude — `claude plugin details` lists both
+  `wallet` + `toggle-hamster` because Claude scans the `skills/` dir. **Codex does NOT
+  auto-discover**, so `.codex-plugin/plugin.json` must carry `"skills": "./skills/"`
+  (alongside `hooks`) or *none* of the skills load in Codex — the exact symptom that bit
+  us. In Codex skills surface via `@` in the composer and implicit task-matching (not a
+  `/` menu). Mirror any future skill-dir change in the Codex manifest.
 - **Do not use sibling `bash` and `powershell` hook handlers.** Codex runs matching
   sibling command hooks independently, so Windows can report a Bash failure even
   when the PowerShell path succeeds. Use one cross-platform Node command instead.
@@ -100,6 +139,15 @@ the QR as plain stdout; stdout must contain only the JSON hook response.
   alternate screen, so the banner shows at launch, gets covered, and reappears in
   scrollback on exit. A codex npm update regenerates the shim and silently drops the
   wrapper — re-run `install`. Pattern mirrors `growl-code-ads`'s CodexCliWrapperAdapter.
+- **One welcome card, two surfaces — re-run the banner install after editing the copy.**
+  The greeting text is single-sourced in `scripts/qr/welcome-card.js` (`buildWelcome()`):
+  Claude's `welcome.js` renders it live every session, and Codex's `codex-banner/install.js`
+  bakes `DEFAULT_BANNER = buildWelcome({ agent: "Codex" })` into `~/.hamster/codex-banner.txt`
+  **at install time** (the only per-surface diff is the `agent` name in the value line). So
+  edit copy in `welcome-card.js` ONLY — but the Codex banner is a *snapshot* living OUTSIDE
+  the plugin, so a normal plugin re-snapshot will NOT refresh it. After changing the welcome,
+  re-run `node scripts/codex-banner/install.js install` or Codex keeps showing the old text
+  (this is how a stale banner can mention things the live card no longer does).
 - **Hooks require trust.** The first interactive run prompts to review/trust a new
   hook; until trusted it is silently skipped. `--dangerously-bypass-hook-trust` is
   the automation escape hatch.
