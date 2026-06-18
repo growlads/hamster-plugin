@@ -172,7 +172,8 @@ the QR as plain stdout; stdout must contain only the JSON hook response.
 - Don't rely on ANSI color in Codex `systemMessage`, or on `data:`/remote `https://`
   images rendering in the Claude IDE webview.
 - Don't split the hook into separate Bash and PowerShell handlers.
-- Don't put a backend round-trip on the critical path of `UserPromptSubmit`. The QR
-  fires on **every** prompt, so `nudge.js` serves the featured game from a short-TTL
-  local cache (`hamster-nudge/featured.json`); only a cold/empty cache does a
-  blocking fetch. Keep it that way — a per-prompt fetch would tax every prompt.
+- The QR fires on **every** prompt, so `nudge.js` fetches the featured game from the
+  backend each time. There is **no** client-side cache (by product decision — we don't
+  want stale offers riding the QR); the fetch is bounded at 9s and fails soft to a
+  silent nudge, and the backend's own ~2 min offer cache keeps the warm round-trip to
+  ~1.5s. Don't re-add a local cache without that decision being reversed.

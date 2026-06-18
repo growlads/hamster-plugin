@@ -4,8 +4,9 @@
  *
  * On every prompt (UserPromptSubmit), show a small QR for the featured game so
  * the user can start playing/earning while the agent works. The featured game is
- * served from a short-TTL local cache (see `featured`) so re-showing it on every
- * prompt doesn't put a backend round-trip on the critical path of each prompt.
+ * fetched fresh from the backend on every prompt — we deliberately keep NO
+ * client-side cache (see `featured`). The backend's own ~2 min offer cache keeps
+ * the warm round-trip to ~1.5s.
  *
  * Output contract: the QR rides in `systemMessage`, which is shown to the user
  * without becoming model context. We never set decision:block, and stdout only
@@ -25,8 +26,8 @@
 "use strict";
 
 const path = require("path");
-const fs = require("fs");
-const os = require("os");
+// const fs = require("fs"); // only used by the client-side cache (disabled below)
+// const os = require("os"); // only used by the client-side cache (disabled below)
 const { renderQrBlock, displayWidth } = require(path.join(__dirname, "qr-block.js"));
 
 // Prefer IPv4 for the backend call. Node's fetch (undici) otherwise tries IPv6
@@ -68,28 +69,32 @@ async function fetchWithTimeout(url, opts, ms) {
   }
 }
 
+// ── Client-side cache: DISABLED by product decision (we don't want stale offers
+// riding the QR). Kept here, commented, so it can be restored quickly: uncomment
+// this block, the cached path in featured() below, and the fs/os requires above.
+//
 // Local cache so the QR can ride EVERY prompt without a backend round-trip each
 // time. TTL mirrors the backend's ~2 min offer cache: within it we re-show the
 // same game (and the same /go link — fine, since the offer is resolved at scan
 // time, not when the QR is drawn). The cache is global (not per-session); a
 // single user token means concurrent sessions share the same featured game.
-const FEATURED_TTL_MS = 120000;
-const cachePath = () => path.join(os.tmpdir(), "hamster-nudge", "featured.json");
-
-function readCache() {
-  try {
-    const { ts, game } = JSON.parse(fs.readFileSync(cachePath(), "utf8"));
-    if (game && game.url) return { ts: Number(ts) || 0, game };
-  } catch { /* missing/corrupt → no cache */ }
-  return null;
-}
-
-function writeCache(game) {
-  try {
-    fs.mkdirSync(path.dirname(cachePath()), { recursive: true });
-    fs.writeFileSync(cachePath(), JSON.stringify({ ts: Date.now(), game }));
-  } catch { /* best effort */ }
-}
+// const FEATURED_TTL_MS = 120000;
+// const cachePath = () => path.join(os.tmpdir(), "hamster-nudge", "featured.json");
+//
+// function readCache() {
+//   try {
+//     const { ts, game } = JSON.parse(fs.readFileSync(cachePath(), "utf8"));
+//     if (game && game.url) return { ts: Number(ts) || 0, game };
+//   } catch { /* missing/corrupt → no cache */ }
+//   return null;
+// }
+//
+// function writeCache(game) {
+//   try {
+//     fs.mkdirSync(path.dirname(cachePath()), { recursive: true });
+//     fs.writeFileSync(cachePath(), JSON.stringify({ ts: Date.now(), game }));
+//   } catch { /* best effort */ }
+// }
 
 async function fetchFeatured(ms) {
   const api = (process.env.HAMSTER_API_URL || "http://localhost:8787").replace(/\/+$/, "");
@@ -111,19 +116,19 @@ async function fetchFeatured(ms) {
 }
 
 /**
- * The featured game, served from the short-TTL cache. Fresh cache → instant, no
- * network. Stale-but-present → a quick refresh (3s) and fall back to the stale
- * entry if the backend is slow, so a prompt is never delayed much. No cache at
- * all → one full cold fetch (9s; the only prompt that pays the cold-start cost).
- * Always fails soft to null (→ silent nudge).
+ * The featured game. The client-side cache is DISABLED — we fetch fresh from the
+ * backend on every prompt (no stale offers), bounded at 9s; the backend's own
+ * ~2 min offer cache keeps the warm case to ~1.5s. The cached path is kept
+ * commented so it can be restored. Always fails soft to null (→ silent nudge).
  */
 async function featured() {
-  const cached = readCache();
-  if (cached && Date.now() - cached.ts < FEATURED_TTL_MS) return cached.game;
-
-  const fresh = await fetchFeatured(cached ? 3000 : 9000);
-  if (fresh) { writeCache(fresh); return fresh; }
-  return cached ? cached.game : null;
+  // const cached = readCache();
+  // if (cached && Date.now() - cached.ts < FEATURED_TTL_MS) return cached.game;
+  //
+  // const fresh = await fetchFeatured(cached ? 3000 : 9000);
+  // if (fresh) { writeCache(fresh); return fresh; }
+  // return cached ? cached.game : null;
+  return fetchFeatured(9000);
 }
 
 // Pause flag (set by launch.js from env > ~/.hamster/config). Treat "1"/"true"
