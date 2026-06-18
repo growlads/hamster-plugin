@@ -16,6 +16,10 @@ const { isPaused, buildNudge } = require("./nudge.js");
 const { buildWelcome } = require("./welcome-card.js");
 const { isPausedValue } = require("../toggle-pause.js");
 
+// Strip ANSI so copy assertions don't depend on whether color is on (the styled
+// "wallet" word would otherwise break a contiguous-text match).
+const plain = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
+
 test("isPaused treats only 1/true (case-insensitive) as paused", () => {
   assert.equal(isPaused({ HAMSTER_PAUSED: "1" }), true);
   assert.equal(isPaused({ HAMSTER_PAUSED: "true" }), true);
@@ -37,14 +41,15 @@ test("isPausedValue (toggle) matches the nudge gate semantics", () => {
   assert.equal(isPausedValue(""), false);
 });
 
-test("nudge copy shows the cash line when a reward is present", () => {
-  const card = buildNudge({ title: "Coin Quest", url: "https://x/go", reward: "4.50" });
+test("nudge copy shows the cash line + run-wallet credit CTA when a reward is present", () => {
+  const card = plain(buildNudge({ title: "Coin Quest", url: "https://x/go", reward: "4.50" }));
   assert.match(card, /Earn up to \$4\.50/);
   assert.match(card, /EARN WHILE YOU CODE/);
   assert.match(card, /Scan to start/);
-  assert.match(card, /Check your wallet ~15 min/);
-  // The wallet is referenced as a word, never as a slash command.
-  assert.doesNotMatch(card, /\/wallet|\/hamster:wallet/);
+  assert.match(card, /Credits land ~15 min later\./);
+  // Points at the wallet skill as /wallet (short form), not the long namespaced one.
+  assert.match(card, /Run \/wallet to check them\./);
+  assert.doesNotMatch(card, /\/hamster:wallet/);
 });
 
 test("nudge omits the cash line gracefully when reward is null", () => {

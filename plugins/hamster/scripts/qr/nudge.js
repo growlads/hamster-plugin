@@ -196,9 +196,6 @@ const pad = (s, w) => s + " ".repeat(Math.max(0, w - vw(s)));
 
 const RW = 26; // right-column copy width
 const PITCH = "Play a few minutes on your phone for real cash.";
-// The wallet auto-triggers on the word "wallet" (see skills/wallet) — so we
-// reference it as a plain word, never as a /command that would double-register.
-const WALLET_HINT = "Check your wallet ~15 min after you play for your credits.";
 
 /** Styled copy beside the QR. Brand lives in the frame title (not repeated here).
  *  The reward amount rides as a high-contrast cash line when the backend gave us
@@ -213,7 +210,12 @@ function copyLines(game) {
     ...wrap(PITCH, RW).map(dim),
     "",
     gold("▸ ") + cream("Scan to start"),
-    ...wrap(WALLET_HINT, RW).map(dim),
+    "",
+    // Point at the wallet skill as the action to check credits, shown as the
+    // short /wallet form (per product call). The skill is registered as
+    // /hamster:wallet and also auto-triggers on the word "wallet".
+    dim("Credits land ~15 min later."),
+    cream("Run ") + goldB("/wallet") + cream(" to check them."),
   ];
 }
 
