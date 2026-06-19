@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 // nudge.js auto-runs its stdin/network flow on require; this env var imports the
 // pure helpers without firing it.
 process.env.HAMSTER_NO_AUTORUN = "1";
-const { isPaused, buildNudge } = require("./nudge.js");
+const { isPaused, buildNudge, buildEarnings } = require("./nudge.js");
 const { buildWelcome } = require("./welcome-card.js");
 const { isPausedValue } = require("../toggle-pause.js");
 
@@ -56,6 +56,18 @@ test("nudge omits the cash line gracefully when reward is null", () => {
   const card = buildNudge({ title: "Coin Quest", url: "https://x/go", reward: null });
   assert.doesNotMatch(card, /Earn up to/);
   assert.match(card, /Coin Quest/);
+});
+
+test("earnings banner pluralizes rewards and shows the formatted total + wallet CTA", () => {
+  const many = plain(buildEarnings({ count: 3, total: "1.26" }));
+  assert.match(many, /\+\$1\.26 earned while you coded/);
+  assert.match(many, /3 rewards cleared/);
+  assert.match(many, /run \/wallet to see the breakdown/);
+
+  const one = plain(buildEarnings({ count: 1, total: "0.42" }));
+  assert.match(one, /\+\$0\.42 earned while you coded/);
+  assert.match(one, /1 reward cleared/);
+  assert.doesNotMatch(one, /1 rewards/); // singular, not "1 rewards"
 });
 
 test("welcome ACTIVE shows the LIVE chip + value line, no wallet command", () => {

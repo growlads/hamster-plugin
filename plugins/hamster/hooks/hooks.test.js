@@ -26,13 +26,16 @@ test("there is no auto-discoverable hooks.json", () => {
   );
 });
 
-test("claude wires the greeting and the per-prompt nudge", () => {
-  assert.deepEqual(Object.keys(claudeConfig.hooks), ["SessionStart", "UserPromptSubmit"]);
+test("claude wires the greeting, the per-prompt nudge, and the wallet command", () => {
+  assert.deepEqual(Object.keys(claudeConfig.hooks), ["SessionStart", "UserPromptSubmit", "UserPromptExpansion"]);
 });
 
-test("codex wires ONLY the per-prompt nudge — never SessionStart", () => {
+test("codex wires per-prompt hooks under UserPromptSubmit only — never SessionStart or UserPromptExpansion", () => {
+  // Codex has no UserPromptExpansion event, so the wallet command rides the
+  // per-prompt UserPromptSubmit instead (the brain checks the prompt text).
   assert.deepEqual(Object.keys(codexConfig.hooks), ["UserPromptSubmit"]);
   assert.equal(codexConfig.hooks.SessionStart, undefined);
+  assert.equal(codexConfig.hooks.UserPromptExpansion, undefined);
 });
 
 test("the greeting runs once at session startup (claude)", () => {
@@ -46,14 +49,49 @@ test("the greeting runs once at session startup (claude)", () => {
 
 test("the QR nudge runs on every prompt submit, identically on both runtimes", () => {
   for (const config of [claudeConfig, codexConfig]) {
-    const groups = config.hooks.UserPromptSubmit;
-    assert.equal(groups.length, 1, "UserPromptSubmit has one group");
-    assert.equal(groups[0].matcher, undefined, "takes no matcher — fires on every prompt");
-    assert.equal(groups[0].hooks.length, 1, "UserPromptSubmit runs one command");
-    assert.equal(groups[0].hooks[0].type, "command");
-    assert.equal(groups[0].hooks[0].shell, undefined, "hook is not shell-specific");
+    const nudge = config.hooks.UserPromptSubmit[0];
+    assert.equal(nudge.matcher, undefined, "takes no matcher — fires on every prompt");
+    assert.equal(nudge.hooks.length, 1, "the nudge group runs one command");
+    assert.equal(nudge.hooks[0].type, "command");
+    assert.equal(nudge.hooks[0].shell, undefined, "hook is not shell-specific");
   }
-  assert.deepEqual(codexConfig.hooks.UserPromptSubmit, claudeConfig.hooks.UserPromptSubmit);
+  // The nudge group is byte-identical across runtimes. (The wallet hook is NOT:
+  // Claude routes it through UserPromptExpansion, Codex through a second
+  // UserPromptSubmit group — so the full arrays intentionally differ.)
+  assert.deepEqual(codexConfig.hooks.UserPromptSubmit[0], claudeConfig.hooks.UserPromptSubmit[0]);
+});
+
+const WALLET_CMD = /^node "\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/wallet\/start-wallet\.js"$/;
+
+test("claude services the wallet command via UserPromptExpansion (no model turn)", () => {
+  const groups = claudeConfig.hooks.UserPromptExpansion;
+  assert.equal(groups.length, 1, "one expansion group");
+  assert.equal(groups[0].matcher, "(^|:)wallet$", "matches /wallet and /hamster:wallet");
+  assert.equal(groups[0].hooks.length, 1);
+  const h = groups[0].hooks[0];
+  assert.equal(h.type, "command");
+  assert.equal(h.shell, undefined, "cross-platform node launcher, not shell-specific");
+  assert.match(h.command, WALLET_CMD);
+  assert.equal(h.commandWindows, h.command);
+});
+
+test("codex services the wallet command via a second UserPromptSubmit hook", () => {
+  const groups = codexConfig.hooks.UserPromptSubmit;
+  assert.equal(groups.length, 2, "nudge + wallet");
+  const wallet = groups[1];
+  assert.equal(wallet.matcher, undefined, "fires on every prompt; the brain checks the text");
+  assert.equal(wallet.hooks.length, 1);
+  const h = wallet.hooks[0];
+  assert.equal(h.type, "command");
+  assert.equal(h.shell, undefined);
+  assert.match(h.command, WALLET_CMD);
+  assert.equal(h.commandWindows, h.command);
+});
+
+test("both runtimes launch the wallet through the same cross-platform brain", () => {
+  const claudeCmd = claudeConfig.hooks.UserPromptExpansion[0].hooks[0].command;
+  const codexCmd = codexConfig.hooks.UserPromptSubmit[1].hooks[0].command;
+  assert.equal(claudeCmd, codexCmd);
 });
 
 test("hook commands use the cross-platform node launchers", () => {

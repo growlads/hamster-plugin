@@ -69,23 +69,47 @@ function renderQrBlock(text, opts) {
   const bx = Math.floor(size / 2) - 1, by = Math.floor(nLines / 2) - 1;
   const midY = by + 1, gx = bx + 1;
   const inBox = (ly, c) => badge && ly >= by && ly < by + 3 && c >= bx && c < bx + 3;
-  const paint = (ch, rgb, bold) =>
-    color ? "\x1b[" + (bold ? "1;" : "") + "38;2;" + rgb + "m" + ch + "\x1b[0m" : ch;
+  // Color the dark modules, RUN-LENGTH ENCODED: open a color escape only when the
+  // run's color changes and close it with a single reset when the run ends, instead
+  // of wrapping every cell in its own escape+reset. The *visible* output (glyphs +
+  // colors) is byte-for-byte identical — we just stop repeating the ~18-byte
+  // truecolor sequence for every module in a same-color run. On a 33-module QR that
+  // is the difference between ~8 KB and ~2 KB of escapes (this rides every prompt).
+  // With color off, output is the plain half-block QR (no escapes at all).
+  const SGR = (code) => "\x1b[" + code + "m";
+  const RESET = "\x1b[0m";
+  const codeData = "38;2;" + DEEP;
+  const codeFinder = "38;2;" + HONEY;
+  const codeBadge = "1;38;2;" + badgeColor;
 
   const lines = [];
   for (let ly = 0; ly < nLines; ly++) {
     let line = "";
+    let open = null; // SGR code currently applied on this line, or null when none
+    // `null` = transparent cell (a blank/space): keep whatever color is open and
+    // just print it — foreground color on a space is invisible, so a same-color run
+    // separated by gaps stays a single escaped run instead of reset/reopening around
+    // every blank. Color is only switched for a different color, and reset at EOL.
+    const put = (ch, code) => {
+      if (code !== null && code !== open) {
+        if (open !== null) line += RESET;
+        line += SGR(code);
+        open = code;
+      }
+      line += ch;
+    };
     for (let c = 0; c < size; c++) {
-      if (badge && ly === midY && c === gx) { line += paint("$", badgeColor, true); continue; }
-      if (inBox(ly, c)) { line += " "; continue; }
+      if (badge && ly === midY && c === gx) { put("$", color ? codeBadge : null); continue; }
+      if (inBox(ly, c)) { put(" ", null); continue; }
       const r = ly * 2;
       const top = dark(r, c);
       const bottom = r + 1 < size ? dark(r + 1, c) : false;
       const ch = top && bottom ? "█" : top ? "▀" : bottom ? "▄" : " ";
-      if (ch === " " || !color) { line += ch; continue; }
-      const rgb = twoTone && ((top && isFinder(r, c)) || (bottom && isFinder(r + 1, c))) ? HONEY : DEEP;
-      line += paint(ch, rgb);
+      if (ch === " " || !color) { put(ch, null); continue; }
+      const isF = twoTone && ((top && isFinder(r, c)) || (bottom && isFinder(r + 1, c)));
+      put(ch, isF ? codeFinder : codeData);
     }
+    if (open !== null) line += RESET; // never leak color past the line
     lines.push(line);
   }
   return lines.join("\n");

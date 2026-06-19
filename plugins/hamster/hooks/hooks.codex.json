@@ -9,6 +9,15 @@
             "commandWindows": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/qr/start-nudge.js\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/wallet/start-wallet.js\"",
+            "commandWindows": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/wallet/start-wallet.js\""
+          }
+        ]
       }
     ]
   }

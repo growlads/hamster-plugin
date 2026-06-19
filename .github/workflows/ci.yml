@@ -32,3 +32,8 @@ jobs:
           node --test
           plugins/hamster/hooks/hooks.test.js
           plugins/hamster/scripts/provision.test.js
+          plugins/hamster/scripts/codex-banner/install.test.js
+          plugins/hamster/scripts/qr/launch.test.js
+          plugins/hamster/scripts/qr/pause.test.js
+          plugins/hamster/scripts/wallet/wallet-card.test.js
+          plugins/hamster/scripts/wallet/wallet.test.js

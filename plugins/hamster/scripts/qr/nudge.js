@@ -29,6 +29,7 @@ const path = require("path");
 // const fs = require("fs"); // only used by the client-side cache (disabled below)
 // const os = require("os"); // only used by the client-side cache (disabled below)
 const { renderQrBlock, displayWidth } = require(path.join(__dirname, "qr-block.js"));
+const { isWalletCommand } = require(path.join(__dirname, "..", "wallet", "wallet-card.js"));
 
 // Prefer IPv4 for the backend call. Node's fetch (undici) otherwise tries IPv6
 // first and, on hosts without working IPv6, stalls ~5s on Happy-Eyeballs before
@@ -131,6 +132,37 @@ async function featured() {
   return fetchFeatured(9000);
 }
 
+/**
+ * Unseen earnings since the last nudge summary. The backend claims-and-marks-read
+ * in this one call (advancing a per-user cursor), so each reward is celebrated
+ * exactly once — no client-side "read" bookkeeping. Returns the positive delta
+ * `{ count, total }` or null when there's nothing new. It never calls Besitos
+ * (pure ledger read), so it's quick; a tighter timeout than featured keeps it
+ * from ever extending the worst case when run in parallel. Always fails soft.
+ */
+async function fetchEarnings(ms) {
+  const api = (process.env.HAMSTER_API_URL || "http://localhost:8787").replace(/\/+$/, "");
+  const token = process.env.HAMSTER_TOKEN || "";
+  if (!token) return null;
+  try {
+    const r = await fetchWithTimeout(api + "/v1/earnings", { headers: { Authorization: "Bearer " + token } }, ms);
+    if (!r.ok) return null;
+    const e = (await r.json()) || {};
+    const count = Number(e.count) || 0;
+    const total = Number(e.total_usd) || 0;
+    if (count <= 0 || total <= 0) return null;
+    return { count, total: total.toFixed(2) };
+  } catch {
+    return null;
+  }
+}
+
+/** Unseen earnings, bounded at 6s — shorter than featured's 9s, so when both run
+ *  in parallel the earnings read can never be the long pole. Fails soft to null. */
+async function earned() {
+  return fetchEarnings(6000);
+}
+
 // Pause flag (set by launch.js from env > ~/.hamster/config). Treat "1"/"true"
 // (case-insensitive) as paused; anything else as active.
 function isPaused(env = process.env) {
@@ -139,21 +171,36 @@ function isPaused(env = process.env) {
 }
 
 async function run() {
-  // Drain stdin (the hook pipes its JSON in) but we no longer gate on it — the
-  // QR rides on every prompt now, not once per session.
-  await readStdin();
+  // Drain stdin (the hook pipes its JSON in). We no longer gate the QR on it —
+  // it rides on every prompt — EXCEPT the wallet command: there the wallet hook
+  // owns the output, so we stay silent rather than draw a QR beside the wallet
+  // card (on Codex both UserPromptSubmit hooks fire on the same prompt).
+  const raw = await readStdin();
+  let prompt = "";
+  try { prompt = JSON.parse(raw).prompt || ""; } catch { /* not JSON / no prompt */ }
+  if (isWalletCommand(prompt)) done(null);
 
   // Paused → emit nothing, and skip the backend fetch entirely (no point paying
   // a network round-trip when we won't draw the card). Toggled with
   // /hamster:toggle-hamster; takes effect next prompt since config is read fresh.
   if (isPaused()) done(null);
 
-  const game = await featured();
-  if (!game) done(null);               // not configured / unreachable → silent
+  // Featured game + any unseen earnings, fetched in PARALLEL: the earnings read
+  // overlaps the (much slower) offer fetch, so the summary costs ~no extra wall
+  // clock. Either may fail independently without sinking the other.
+  const [game, earnings] = await Promise.all([featured(), earned()]);
+
+  // Lead with the good news (you got paid), then the QR to keep playing. Each
+  // part is optional: just earnings, just the card, both, or — if neither is
+  // available (not configured / unreachable) — stay silent.
+  const parts = [];
+  if (earnings) parts.push(buildEarnings(earnings));
+  if (game) parts.push(buildNudge(game));
+  if (parts.length === 0) done(null);
 
   // systemMessage shows to the user; no decision:block, so the prompt proceeds.
   // Lead with a newline so the nudge starts on its own line under the notice.
-  done({ systemMessage: "\n" + buildNudge(game) });
+  done({ systemMessage: "\n" + parts.join("\n\n") });
 }
 
 // Auto-run when launched as the QR brain (launch.js require()s this module, and
@@ -161,7 +208,7 @@ async function run() {
 // pure helpers (isPaused, buildNudge) without firing the stdin/network flow.
 if (!process.env.HAMSTER_NO_AUTORUN) run();
 
-module.exports = { isPaused, buildNudge, copyLines };
+module.exports = { isPaused, buildNudge, buildEarnings, copyLines };
 
 /** Greedy word-wrap to `width` columns. */
 function wrap(text, width) {
@@ -222,6 +269,22 @@ function copyLines(game) {
     dim("Credits land ~15 min later."),
     cream("Run ") + goldB("/wallet") + cream(" to check them."),
   ];
+}
+
+/**
+ * The earnings topper: a tasteful one-time "you got paid" line that rides above
+ * the QR card on the next nudge after rewards land. Only ever shown when the
+ * backend reports unseen credits (which it then marks read), so it never repeats
+ * and never appears empty. `e` is `{ count, total }` with total pre-formatted to
+ * cents. Kept to two slim lines — a flush-left headline, not a second framed box
+ * competing with the gold card beneath it.
+ */
+function buildEarnings(e) {
+  const rewards = e.count === 1 ? "1 reward" : e.count + " rewards";
+  const head = goldB("✦ ") + cashB("+$" + e.total) + cream(" earned while you coded");
+  const sub =
+    dim(rewards + " cleared — ") + cream("run ") + goldB("/wallet") + cream(" to see the breakdown");
+  return head + "\n" + sub;
 }
 
 /** Two-column body: QR left, copy vertically centered on the right. */
