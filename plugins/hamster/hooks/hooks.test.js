@@ -26,16 +26,16 @@ test("there is no auto-discoverable hooks.json", () => {
   );
 });
 
-test("claude wires the greeting, the per-prompt nudge, and the wallet command", () => {
-  assert.deepEqual(Object.keys(claudeConfig.hooks), ["SessionStart", "UserPromptSubmit", "UserPromptExpansion"]);
+test("claude wires the greeting + the per-prompt hooks (no UserPromptExpansion)", () => {
+  // UserPromptExpansion does NOT fire for skill invocations (only legacy command
+  // expansions), so wallet/toggle are intercepted at UserPromptSubmit instead.
+  assert.deepEqual(Object.keys(claudeConfig.hooks), ["SessionStart", "UserPromptSubmit"]);
+  assert.equal(claudeConfig.hooks.UserPromptExpansion, undefined);
 });
 
-test("codex wires per-prompt hooks under UserPromptSubmit only — never SessionStart or UserPromptExpansion", () => {
-  // Codex has no UserPromptExpansion event, so the wallet command rides the
-  // per-prompt UserPromptSubmit instead (the brain checks the prompt text).
+test("codex wires per-prompt hooks under UserPromptSubmit only — never SessionStart", () => {
   assert.deepEqual(Object.keys(codexConfig.hooks), ["UserPromptSubmit"]);
   assert.equal(codexConfig.hooks.SessionStart, undefined);
-  assert.equal(codexConfig.hooks.UserPromptExpansion, undefined);
 });
 
 test("the greeting runs once at session startup (claude)", () => {
@@ -55,58 +55,39 @@ test("the QR nudge runs on every prompt submit, identically on both runtimes", (
     assert.equal(nudge.hooks[0].type, "command");
     assert.equal(nudge.hooks[0].shell, undefined, "hook is not shell-specific");
   }
-  // The nudge group is byte-identical across runtimes. (The wallet hook is NOT:
-  // Claude routes it through UserPromptExpansion, Codex through a second
-  // UserPromptSubmit group — so the full arrays intentionally differ.)
   assert.deepEqual(codexConfig.hooks.UserPromptSubmit[0], claudeConfig.hooks.UserPromptSubmit[0]);
 });
 
 const WALLET_CMD = /^node "\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/wallet\/start-wallet\.js"$/;
 const TOGGLE_CMD = /^node "\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/toggle-hook\.js"$/;
 
-// Each slash command Claude services via UserPromptExpansion: matcher -> launcher.
-const EXPANSION_COMMANDS = [
-  { name: "wallet", matcher: "(^|:)wallet$", cmd: WALLET_CMD },
-  { name: "toggle-hamster", matcher: "(^|:)toggle-hamster$", cmd: TOGGLE_CMD },
+// Both runtimes intercept these slash commands at UserPromptSubmit (the brain
+// blocks before the skill route runs). UserPromptExpansion is NOT used — it
+// doesn't fire for skill invocations.
+const SUBMIT_COMMANDS = [
+  { name: "wallet", cmd: WALLET_CMD },
+  { name: "toggle-hamster", cmd: TOGGLE_CMD },
 ];
 
-test("claude services the slash commands via UserPromptExpansion (no model turn)", () => {
-  const groups = claudeConfig.hooks.UserPromptExpansion;
-  assert.equal(groups.length, EXPANSION_COMMANDS.length, "one expansion group per command");
-  for (const { matcher, cmd } of EXPANSION_COMMANDS) {
-    const g = groups.find((x) => x.matcher === matcher);
-    assert.ok(g, `has an expansion group for ${matcher}`);
-    assert.equal(g.hooks.length, 1);
-    const h = g.hooks[0];
-    assert.equal(h.type, "command");
-    assert.equal(h.shell, undefined, "cross-platform node launcher, not shell-specific");
-    assert.match(h.command, cmd);
-    assert.equal(h.commandWindows, h.command);
+test("both runtimes service the slash commands via UserPromptSubmit (no model turn)", () => {
+  for (const config of [claudeConfig, codexConfig]) {
+    assert.equal(config.hooks.UserPromptExpansion, undefined, "we intercept at submit, not expansion");
+    const groups = config.hooks.UserPromptSubmit;
+    assert.equal(groups.length, 1 + SUBMIT_COMMANDS.length, "nudge + wallet + toggle");
+    for (const { cmd } of SUBMIT_COMMANDS) {
+      const g = groups.find((x) => x.hooks.length === 1 && cmd.test(x.hooks[0].command));
+      assert.ok(g, `has a UserPromptSubmit group for ${cmd}`);
+      assert.equal(g.matcher, undefined, "fires on every prompt; the brain checks the text");
+      assert.equal(g.hooks[0].type, "command");
+      assert.equal(g.hooks[0].shell, undefined, "cross-platform node launcher, not shell-specific");
+      assert.equal(g.hooks[0].commandWindows, g.hooks[0].command);
+    }
   }
 });
 
-test("codex services those commands via extra UserPromptSubmit hooks (no expansion event)", () => {
-  const groups = codexConfig.hooks.UserPromptSubmit;
-  // nudge (always) + one per expansion command.
-  assert.equal(groups.length, 1 + EXPANSION_COMMANDS.length, "nudge + wallet + toggle");
-  for (const { cmd } of EXPANSION_COMMANDS) {
-    const g = groups.find((x) => x.hooks.length === 1 && cmd.test(x.hooks[0].command));
-    assert.ok(g, `has a UserPromptSubmit group for ${cmd}`);
-    assert.equal(g.matcher, undefined, "fires on every prompt; the brain checks the text");
-    assert.equal(g.hooks[0].type, "command");
-    assert.equal(g.hooks[0].shell, undefined);
-    assert.equal(g.hooks[0].commandWindows, g.hooks[0].command);
-  }
-});
-
-test("both runtimes launch each command through the same cross-platform brain", () => {
-  for (const { matcher, cmd } of EXPANSION_COMMANDS) {
-    const claudeCmd = claudeConfig.hooks.UserPromptExpansion.find((g) => g.matcher === matcher).hooks[0].command;
-    const codexCmd = codexConfig.hooks.UserPromptSubmit.find(
-      (g) => g.hooks.length === 1 && cmd.test(g.hooks[0].command),
-    ).hooks[0].command;
-    assert.equal(claudeCmd, codexCmd);
-  }
+test("the per-prompt UserPromptSubmit chain is identical on both runtimes", () => {
+  // nudge + wallet + toggle, same order, same commands — one mechanism everywhere.
+  assert.deepEqual(codexConfig.hooks.UserPromptSubmit, claudeConfig.hooks.UserPromptSubmit);
 });
 
 test("hook commands use the cross-platform node launchers", () => {

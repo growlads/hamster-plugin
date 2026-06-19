@@ -41,7 +41,10 @@ function isPausedValue(v) {
  */
 function isToggleCommand(prompt) {
   if (prompt == null) return false;
-  return /^\/?(hamster:)?toggle-hamster$/i.test(String(prompt).trim());
+  // Claude sends "/hamster:toggle-hamster", Codex sends "$hamster:toggle-hamster"
+  // (verified via ~/.hamster/hook-debug.log). Accept either prefix (or none),
+  // namespaced or bare. Anchored — gates a WRITE, so it must not match loosely.
+  return /^[/$]?(hamster:)?toggle-hamster$/i.test(String(prompt).trim());
 }
 
 /**

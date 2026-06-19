@@ -21,11 +21,8 @@
             "commandWindows": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/qr/start-nudge.js\""
           }
         ]
-      }
-    ],
-    "UserPromptExpansion": [
+      },
       {
-        "matcher": "(^|:)wallet$",
         "hooks": [
           {
             "type": "command",
@@ -35,7 +32,6 @@
         ]
       },
       {
-        "matcher": "(^|:)toggle-hamster$",
         "hooks": [
           {
             "type": "command",

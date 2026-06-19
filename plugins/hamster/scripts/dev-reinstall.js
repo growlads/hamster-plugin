@@ -17,6 +17,9 @@
  *   node dev-reinstall.js claude          # Claude Code only
  *   node dev-reinstall.js codex           # Codex only
  *   node dev-reinstall.js --no-banner     # skip the Codex banner refresh
+ *   node dev-reinstall.js uninstall       # remove the plugin + marketplace from both
+ *   node dev-reinstall.js uninstall codex # uninstall from one runtime
+ *   node dev-reinstall.js uninstall --banner  # also remove the Codex launch banner
  *   node dev-reinstall.js -h | --help
  *
  * Idempotent and safe to re-run. Changes apply on the NEXT session, not the one
@@ -143,6 +146,35 @@ function reinstallCodex({ banner = true } = {}) {
   return { runtime: "codex", status: "ok" };
 }
 
+function uninstallClaude() {
+  header("Claude Code (uninstall)");
+  if (!cliAvailable("claude")) {
+    console.log("  – `claude` not found on PATH — skipping.");
+    return { runtime: "claude", status: "skipped" };
+  }
+  run("claude plugin uninstall hamster", { allowFail: true, label: "claude plugin uninstall hamster" });
+  run("claude plugin marketplace remove hamster", { allowFail: true, label: "claude plugin marketplace remove hamster" });
+  console.log("  ✓ Claude: plugin + marketplace removed.");
+  return { runtime: "claude", status: "ok" };
+}
+
+function uninstallCodex({ banner = false } = {}) {
+  header("Codex (uninstall)");
+  if (!cliAvailable("codex")) {
+    console.log("  – `codex` not found on PATH — skipping.");
+    return { runtime: "codex", status: "skipped" };
+  }
+  run("codex plugin remove hamster@hamster", { allowFail: true, label: "codex plugin remove hamster@hamster" });
+  run("codex plugin marketplace remove hamster", { allowFail: true, label: "codex plugin marketplace remove hamster" });
+  // The launch banner is a separate shim wrapper, so plugin removal never touches it.
+  // Only remove it when explicitly asked (--banner), since the user opted into it.
+  if (banner && fs.existsSync(BANNER_INSTALLER)) {
+    run(`node "${BANNER_INSTALLER}" uninstall`, { allowFail: true, label: "codex-banner uninstall" });
+  }
+  console.log("  ✓ Codex: plugin + marketplace removed." + (banner ? " (banner too)" : ""));
+  return { runtime: "codex", status: "ok" };
+}
+
 function main(argv) {
   if (argv.includes("-h") || argv.includes("--help")) {
     const src = fs.readFileSync(__filename, "utf8");
@@ -159,23 +191,31 @@ function main(argv) {
     );
   }
 
-  const wantBanner = !argv.includes("--no-banner");
+  const uninstall = argv.includes("uninstall");
+  const wantBanner = uninstall ? argv.includes("--banner") : !argv.includes("--no-banner");
   const targets = argv.filter((a) => a === "claude" || a === "codex");
   const doClaude = targets.length === 0 || targets.includes("claude");
   const doCodex = targets.length === 0 || targets.includes("codex");
 
-  console.log(`Re-snapshotting hamster from: ${REPO_ROOT}`);
-
   const results = [];
-  if (doClaude) results.push(reinstallClaude());
-  if (doCodex) results.push(reinstallCodex({ banner: wantBanner }));
+  if (uninstall) {
+    console.log("Uninstalling hamster from the selected runtime(s).");
+    if (doClaude) results.push(uninstallClaude());
+    if (doCodex) results.push(uninstallCodex({ banner: wantBanner }));
+  } else {
+    console.log(`Re-snapshotting hamster from: ${REPO_ROOT}`);
+    if (doClaude) results.push(reinstallClaude());
+    if (doCodex) results.push(reinstallCodex({ banner: wantBanner }));
+  }
 
   header("Done");
   for (const r of results) console.log(`  ${r.runtime}: ${r.status}`);
   console.log("\nReminders:");
   console.log("  • Changes apply on the NEXT session — restart the CLI(s).");
-  console.log('  • Codex gates hooks on trust: the next interactive `codex` shows');
-  console.log('    "Hooks need review" — pick Review/Trust, or hamster\'s hooks are skipped.');
+  if (!uninstall) {
+    console.log('  • Codex gates hooks on trust: the next interactive `codex` shows');
+    console.log('    "Hooks need review" — pick Review/Trust, or hamster\'s hooks are skipped.');
+  }
 
   if (results.some((r) => r.status === "skipped") && !results.some((r) => r.status === "ok")) {
     die("no runtime was reinstalled (neither `claude` nor `codex` found).");

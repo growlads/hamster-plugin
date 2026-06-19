@@ -162,7 +162,11 @@ function padEnd(s, w) {
  */
 function isWalletCommand(prompt) {
   if (prompt == null) return false;
-  return /^\/?(hamster:)?wallet$/i.test(String(prompt).trim());
+  // Runtimes prefix the slash command differently: Claude sends "/hamster:wallet",
+  // Codex sends "$hamster:wallet" (verified via ~/.hamster/hook-debug.log). Accept
+  // either prefix (or none), namespaced or bare. Anchored so natural language never
+  // matches.
+  return /^[/$]?(hamster:)?wallet$/i.test(String(prompt).trim());
 }
 
 module.exports = { buildWallet, isWalletCommand, usd, vw };

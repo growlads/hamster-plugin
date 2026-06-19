@@ -24,6 +24,8 @@ test("isToggleCommand matches the explicit command forms only", () => {
     "toggle-hamster",
     "  /toggle-hamster  ",
     "TOGGLE-HAMSTER",
+    "$toggle-hamster", // Codex prefixes with $
+    "$hamster:toggle-hamster",
   ]) {
     assert.equal(isToggleCommand(yes), true, `should match: ${JSON.stringify(yes)}`);
   }

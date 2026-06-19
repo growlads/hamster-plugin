@@ -31,6 +31,7 @@ const path = require("path");
 const { renderQrBlock, displayWidth } = require(path.join(__dirname, "qr-block.js"));
 const { isWalletCommand } = require(path.join(__dirname, "..", "wallet", "wallet-card.js"));
 const { isToggleCommand } = require(path.join(__dirname, "..", "toggle-pause.js"));
+const { logEvent } = require(path.join(__dirname, "..", "hook-debug.js"));
 
 // Prefer IPv4 for the backend call. Node's fetch (undici) otherwise tries IPv6
 // first and, on hosts without working IPv6, stalls ~5s on Happy-Eyeballs before
@@ -177,8 +178,10 @@ async function run() {
   // wallet/toggle hooks own the output, so we stay silent rather than draw a QR
   // beside their card (on Codex every UserPromptSubmit hook fires on the prompt).
   const raw = await readStdin();
-  let prompt = "";
-  try { prompt = JSON.parse(raw).prompt || ""; } catch { /* not JSON / no prompt */ }
+  let hook = {};
+  try { hook = JSON.parse(raw) || {}; } catch { /* not JSON */ }
+  logEvent("nudge", hook);
+  const prompt = hook.prompt || "";
   if (isWalletCommand(prompt) || isToggleCommand(prompt)) done(null);
 
   // Paused → emit nothing, and skip the backend fetch entirely (no point paying

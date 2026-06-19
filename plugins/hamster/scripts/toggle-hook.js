@@ -28,6 +28,7 @@
 
 const path = require("path");
 const { applyToggle, isToggleCommand } = require(path.join(__dirname, "toggle-pause.js"));
+const { logEvent } = require(path.join(__dirname, "hook-debug.js"));
 
 function done(obj) {
   if (obj) process.stdout.write(JSON.stringify(obj));
@@ -61,6 +62,7 @@ function shouldRender(hook) {
 
 async function run() {
   const hook = await readStdin().then((raw) => { try { return JSON.parse(raw); } catch { return {}; } });
+  logEvent("toggle", hook);
 
   // Not the toggle command → emit nothing. On Codex this lets the QR nudge proceed
   // AND, crucially, leaves the pause flag untouched.

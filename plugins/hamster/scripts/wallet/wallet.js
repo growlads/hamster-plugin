@@ -25,6 +25,7 @@
 
 const path = require("path");
 const { buildWallet, isWalletCommand } = require(path.join(__dirname, "wallet-card.js"));
+const { logEvent } = require(path.join(__dirname, "..", "hook-debug.js"));
 
 // Prefer IPv4 for the backend call (see nudge.js for the Happy-Eyeballs rationale).
 try { require("dns").setDefaultResultOrder("ipv4first"); } catch { /* node < 16.4 */ }
@@ -103,6 +104,7 @@ function errorBody(res) {
 
 async function run() {
   const hook = await readStdin().then((raw) => { try { return JSON.parse(raw); } catch { return {}; } });
+  logEvent("wallet", hook);
 
   // Not a wallet request → emit nothing. On Codex this lets the QR nudge proceed.
   if (!shouldRender(hook)) done(null);

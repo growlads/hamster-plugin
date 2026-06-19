@@ -103,7 +103,10 @@ test("color:false emits zero ANSI escapes; color:true emits some", () => {
 });
 
 test("isWalletCommand matches the explicit command forms only", () => {
-  for (const yes of ["/wallet", "/hamster:wallet", "wallet", "  /wallet  ", "WALLET", "/Wallet"]) {
+  for (const yes of [
+    "/wallet", "/hamster:wallet", "wallet", "  /wallet  ", "WALLET", "/Wallet",
+    "$wallet", "$hamster:wallet", // Codex prefixes with $
+  ]) {
     assert.equal(isWalletCommand(yes), true, `should match: ${JSON.stringify(yes)}`);
   }
   for (const no of [
