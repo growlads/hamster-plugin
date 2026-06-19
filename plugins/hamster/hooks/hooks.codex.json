@@ -18,6 +18,15 @@
             "commandWindows": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/wallet/start-wallet.js\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/toggle-hook.js\"",
+            "commandWindows": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/toggle-hook.js\""
+          }
+        ]
       }
     ]
   }

@@ -4,13 +4,20 @@
  *
  * Reads ~/.hamster/config (honoring a HAMSTER_CONFIG override, like provision.js),
  * toggles HAMSTER_PAUSED between "1" (paused) and "0" (active), writes it back
- * with the existing mergeConfig/writeConfigAtomic helpers, then prints a one-line
- * confirmation card to stdout. The change takes effect on the next prompt (nudge
- * + welcome read the config fresh via launch.js); the printed line is the
+ * with the existing mergeConfig/writeConfigAtomic helpers, and reports the new
+ * state + a one-line confirmation. The change takes effect on the next prompt
+ * (nudge + welcome read the config fresh via launch.js); the confirmation is the
  * immediate in-session feedback.
  *
- * Invoked by the /hamster:toggle-hamster skill. Fails soft — a toggle must never
- * throw and disrupt a session: on any error it prints a short note and exits 0.
+ * Two callers share applyToggle():
+ *   • the toggle-hamster hook brain (../toggle-hook.js) wraps the message in a
+ *     UserPromptExpansion / UserPromptSubmit envelope so /toggle-hamster runs with
+ *     NO model turn; and
+ *   • main() here, kept for standalone use and as the toggle-hamster SKILL fallback
+ *     (it prints the plain line and the skill relays it).
+ *
+ * Fails soft — a toggle must never throw and disrupt a session: on any error it
+ * reports a short note and main() exits 0.
  */
 "use strict";
 
@@ -25,13 +32,28 @@ function isPausedValue(v) {
   return s === "1" || s === "true";
 }
 
-function main() {
-  try {
-    const configPath = process.env.HAMSTER_CONFIG || path.join(os.homedir(), ".hamster", "config");
+/**
+ * Is `prompt` the explicit toggle command (not natural language)? Matches the whole
+ * prompt being one of: /toggle-hamster, /hamster:toggle-hamster, toggle-hamster
+ * (any case, surrounding whitespace ok). Deliberately strict — it gates a WRITE on
+ * Codex, where UserPromptSubmit fires on every prompt, so anything looser would
+ * flip the flag on unrelated prompts.
+ */
+function isToggleCommand(prompt) {
+  if (prompt == null) return false;
+  return /^\/?(hamster:)?toggle-hamster$/i.test(String(prompt).trim());
+}
 
+/**
+ * Flip the saved HAMSTER_PAUSED flag and return { paused, message }. The config file
+ * is the source of truth here (the toggle persists to it); we don't fold in the env
+ * var, since toggling should flip the saved flag. Never throws — on any IO error it
+ * returns { paused: null } with a short note.
+ */
+function applyToggle(configPath) {
+  configPath = configPath || process.env.HAMSTER_CONFIG || path.join(os.homedir(), ".hamster", "config");
+  try {
     const userConfig = loadEnvFile(configPath);
-    // Current state: config is the source of truth here (the toggle persists to
-    // it). We don't fold in the env var — toggling should flip the saved flag.
     const nowPaused = !isPausedValue(userConfig.HAMSTER_PAUSED);
 
     const existing = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf8") : "";
@@ -40,19 +62,23 @@ function main() {
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     writeConfigAtomic(configPath, merged);
 
-    process.stdout.write(
-      (nowPaused
+    return {
+      paused: nowPaused,
+      message: nowPaused
         ? "⏸ hamster paused — no more QR cards. Run /hamster:toggle-hamster again to resume."
-        : "● hamster live — QR cards back on. Earn while you code.") + "\n",
-    );
+        : "● hamster live — QR cards back on. Earn while you code.",
+    };
   } catch {
-    // Fail soft: never disrupt the session.
-    process.stdout.write("hamster: couldn't update the pause flag — try again.\n");
+    return { paused: null, message: "hamster: couldn't update the pause flag — try again." };
   }
+}
+
+function main() {
+  process.stdout.write(applyToggle().message + "\n");
   process.exit(0);
 }
 
-module.exports = { isPausedValue, main };
+module.exports = { isPausedValue, isToggleCommand, applyToggle, main };
 
 if (require.main === module) {
   main();

@@ -30,6 +30,7 @@ const path = require("path");
 // const os = require("os"); // only used by the client-side cache (disabled below)
 const { renderQrBlock, displayWidth } = require(path.join(__dirname, "qr-block.js"));
 const { isWalletCommand } = require(path.join(__dirname, "..", "wallet", "wallet-card.js"));
+const { isToggleCommand } = require(path.join(__dirname, "..", "toggle-pause.js"));
 
 // Prefer IPv4 for the backend call. Node's fetch (undici) otherwise tries IPv6
 // first and, on hosts without working IPv6, stalls ~5s on Happy-Eyeballs before
@@ -172,13 +173,13 @@ function isPaused(env = process.env) {
 
 async function run() {
   // Drain stdin (the hook pipes its JSON in). We no longer gate the QR on it —
-  // it rides on every prompt — EXCEPT the wallet command: there the wallet hook
-  // owns the output, so we stay silent rather than draw a QR beside the wallet
-  // card (on Codex both UserPromptSubmit hooks fire on the same prompt).
+  // it rides on every prompt — EXCEPT the wallet/toggle commands: there the
+  // wallet/toggle hooks own the output, so we stay silent rather than draw a QR
+  // beside their card (on Codex every UserPromptSubmit hook fires on the prompt).
   const raw = await readStdin();
   let prompt = "";
   try { prompt = JSON.parse(raw).prompt || ""; } catch { /* not JSON / no prompt */ }
-  if (isWalletCommand(prompt)) done(null);
+  if (isWalletCommand(prompt) || isToggleCommand(prompt)) done(null);
 
   // Paused → emit nothing, and skip the backend fetch entirely (no point paying
   // a network round-trip when we won't draw the card). Toggled with
