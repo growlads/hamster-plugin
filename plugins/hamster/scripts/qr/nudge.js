@@ -28,7 +28,7 @@
 const path = require("path");
 // const fs = require("fs"); // only used by the client-side cache (disabled below)
 // const os = require("os"); // only used by the client-side cache (disabled below)
-const { renderQrBlock, displayWidth } = require(path.join(__dirname, "qr-block.js"));
+const { renderQrForTerminal, displayWidth } = require(path.join(__dirname, "qr-block.js"));
 const { isWalletCommand } = require(path.join(__dirname, "..", "wallet", "wallet-card.js"));
 const { isToggleCommand } = require(path.join(__dirname, "..", "toggle-pause.js"));
 const { logEvent } = require(path.join(__dirname, "..", "hook-debug.js"));
@@ -231,8 +231,8 @@ function wrap(text, width) {
 // Best-effort display width. The hook's stdout is a pipe, so these are usually
 // unset — when unknown we return 0 and let the caller default to the (compact)
 // side-by-side card rather than guess a narrow panel.
-function termWidth() {
-  const c = process.stdout.columns || process.stderr.columns || Number(process.env.COLUMNS) || 0;
+function termWidth(columns) {
+  const c = columns || process.stdout.columns || process.stderr.columns || Number(process.env.COLUMNS) || 0;
   return Number.isFinite(c) && c > 0 ? c : 0;
 }
 
@@ -251,7 +251,7 @@ const vw = displayWidth; // visible width (ignores ANSI)
 const pad = (s, w) => s + " ".repeat(Math.max(0, w - vw(s)));
 
 const RW = 26; // right-column copy width
-const PITCH = "Play a few minutes on your phone for real cash.";
+const PITCH = "Install and play the game on your phone for cash rewards, while the agent codes";
 
 /** Styled copy beside the QR. Brand lives in the frame title (not repeated here).
  *  The reward amount rides as a high-contrast cash line when the backend gave us
@@ -334,17 +334,18 @@ function stacked(qr, copy) {
  * Compose the nudge. Default to the framed side-by-side card; only when we can
  * positively detect that the panel is too narrow do we fall back to the stack.
  */
-function buildNudge(game) {
-  // Brand-gold two-tone QR with the green $ badge. Color on by default; NO_COLOR
-  // (or a host that can't render truecolor) falls back to a plain QR that still
-  // scans and shows the $. margin 0 = flush; the dark terminal is the quiet zone.
-  const qr = renderQrBlock(game.url, { color: !NO_COLOR, twoTone: !NO_COLOR, badge: true, margin: 0 }).split("\n");
+function buildNudge(game, opts = {}) {
+  // Pick the QR renderer by what the terminal can actually paint:
+  //   coin    → truecolor terminals get the gold minted coin
+  //   full    → 256-color terminals get full background cells, reliable in Terminal.app
+  //   reverse → NO_COLOR gets an attribute-only QR
+  const qr = renderQrForTerminal(game.url, { env: opts.env || process.env }).qr.split("\n");
   const copy = copyLines(game);
 
   const qrW = Math.max(...qr.map(vw));
   const copyW = Math.max(RW, ...copy.map(vw));
   const cardW = qrW + 3 + copyW + 4; // gap + borders + side padding
-  const avail = termWidth();
+  const avail = termWidth(opts.columns);
 
   return avail && cardW > avail ? stacked(qr, copy) : card(qr, copy);
 }

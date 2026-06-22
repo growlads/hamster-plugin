@@ -37,8 +37,11 @@ const MARKER = "HAMSTER-CODEX-BANNER";
 const BACKUP_TAG = "hamster-orig";
 // Default banner = the same card the Claude Code SessionStart hook shows
 // (welcome.js), but with the value line naming "Codex" — this is the Codex
-// launch banner, so it reads true on this surface.
-const DEFAULT_BANNER = buildWelcome({ agent: "Codex" });
+// launch banner, so it reads true on this surface. force color ON: the banner is
+// a static snapshot displayed in a terminal later, so it must NOT inherit the
+// NO_COLOR / non-interactive state of whatever shell happens to generate it
+// (CI, an agent, a pipe) — otherwise it freezes colorless.
+const DEFAULT_BANNER = buildWelcome({ agent: "Codex", color: true });
 
 const isWin = process.platform === "win32";
 
