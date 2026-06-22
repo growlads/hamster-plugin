@@ -82,8 +82,11 @@ function reinstallClaude() {
     return { runtime: "claude", status: "skipped" };
   }
   // Pin the `hamster` marketplace at this repo (remove any stale pointer first).
+  // Use a relative "./" — claude (>=2.0.76) rejects absolute Windows paths for
+  // `marketplace add` ("Try: owner/repo, https://..., or ./path"). run() sets
+  // cwd to REPO_ROOT, so "./" resolves to this repo.
   run("claude plugin marketplace remove hamster", { allowFail: true, label: "claude plugin marketplace remove hamster" });
-  run(`claude plugin marketplace add "${REPO_ROOT}"`, { label: `claude plugin marketplace add "${REPO_ROOT}"` });
+  run("claude plugin marketplace add ./", { label: "claude plugin marketplace add ./ (cwd = repo root)" });
   // Re-snapshot the plugin.
   run("claude plugin uninstall hamster", { allowFail: true, label: "claude plugin uninstall hamster" });
   run("claude plugin install hamster@hamster", { label: "claude plugin install hamster@hamster" });
