@@ -5,7 +5,7 @@
 A Claude Code plugin. It greets you when your session starts, then shows a small
 QR card for a live rewarded game on **every** prompt (works on **any OS**, never
 blocks your prompt) — scan it with your phone, install the game, and earn real USD
-as you hit in-game goals. Ask about your **wallet** to see your earnings; check it
+as you hit in-game goals. Run **`/wallet`** to see your earnings; check it
 ~15 min after you play for your credits to land.
 
 The plugin never talks to any offerwall directly — it only calls the Hamster
@@ -22,8 +22,8 @@ server-side. See the [repo README](../../README.md) for the full picture.
 | **`/hamster:toggle-hamster`** | Pause the per-prompt QR (no more cards) — run it again to resume. | any |
 
 `/wallet` is namespaced as `/hamster:wallet`; enable a bare `/wallet` with the
-[installer below](#optional-bare-commands). The **wallet** also opens when you
-just ask about your balance, earnings, or rewards in plain language.
+[installer below](#optional-bare-commands). Type the command exactly — it's
+served instantly, without spending one of your agent's turns.
 
 > Additional play surfaces (an on-demand QR, a browser hub, and a Mac iPhone-mirroring
 > flow) are built but disabled in this release — see [`disabled/`](disabled/).
@@ -112,16 +112,15 @@ See [`.hamster.config.example`](../../.hamster.config.example) for the file form
   If Node is missing, the nudge stays silent rather than disrupting your prompt.
 - **To actually earn** — your **phone must be in a supported region**:
   **US · CA · GB · DE · FR · IT · ES · AU**. The phone's IP is checked at scan
-  time; outside those regions you'll hit a "Games Unavailable" page (a VPN on the
-  phone resolves it). This is the most common "why isn't it working?" — it's
-  geography, not a bug.
+  time; outside those regions you'll hit a "Games Unavailable" page and won't
+  earn. This is the most common "why isn't it working?" — it's geography, not a
+  bug.
 
 ## Usage
 
 - Just **send a prompt** — the nudge shows a QR card on every one. Scan it with
   your phone's camera, install the game, and play while Claude works.
-- **`/wallet`** (or `/hamster:wallet`, or just ask about your **wallet**) —
-  balance, lifetime, recent rewards. Credits land ~15 min after you play, so
+- **`/wallet`** (or `/hamster:wallet`) — balance, lifetime, recent rewards. Credits land ~15 min after you play, so
   check your wallet a little after a session.
 - **`/hamster:toggle-hamster`** — pause the per-prompt QR when you want a quiet
   prompt; run it again to bring the cards back. Takes effect on your next prompt.
@@ -129,8 +128,8 @@ See [`.hamster.config.example`](../../.hamster.config.example) for the file form
 ## Troubleshooting
 
 - **QR scan says "Games Unavailable."** You're (or your phone is) outside a
-  supported region — see Requirements. Turn on a VPN on the phone in a supported
-  region and rescan.
+  supported region — see Requirements. Earnings are only available in the
+  supported markets.
 - **No QR card appears.** The nudge renders in Node and fails soft — install
   **Node.js ≥ 18** and make sure `node` is on your `PATH` (it's also what mints
   your token automatically).

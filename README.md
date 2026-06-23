@@ -107,16 +107,16 @@ Rewarded offers are served only in: **US · CA · GB · DE · FR · IT · ES · 
 
 The country that matters is **where your phone is** — it's checked at the phone's IP
 when you scan. If your phone is outside a supported region you'll land on a "Games
-Unavailable" page even though everything else is correct; a **VPN on the phone** set
-to a supported region resolves it. This is the single most common "why doesn't it
-work?" — it's geography, not a bug.
+Unavailable" page even though everything else is correct — Hamster only earns in the
+supported markets. This is the single most common "why doesn't it work?" — it's
+geography, not a bug.
 
 ---
 
 ## Troubleshooting
 
 - **QR scan says "Games Unavailable."** Your phone is outside a supported region —
-  see the region note. Turn on a VPN on the phone and rescan.
+  see the region note. Earnings are only available in the supported markets.
 - **No QR card appears.** The nudge renders in Node and fails soft — install
   **Node.js ≥ 18** and make sure `node` is on your `PATH` (it also mints your
   token automatically on first run).
