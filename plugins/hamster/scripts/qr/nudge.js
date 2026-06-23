@@ -257,7 +257,10 @@ const gold = sty("33");    // yellow — frame border, CTA arrow, " · play"
 const cream = sty("");     // default foreground — body copy
 const creamB = sty("1");   // bold default fg — game name
 const dim = sty("2");      // faint default fg — kicker, pitch, secondary lines
-const cashB = sty("1;32"); // bold green — reward / earnings amount
+const cashB = sty("1;32"); // bold green — earnings topper amount
+// Reward badge: bold ink on a gold (yellow-bg) chip. ANSI slots (43 bg / 30 fg)
+// so the theme picks a gold that reads on its own background, same as `gold`.
+const chip = sty("1;30;43");
 
 const vw = displayWidth; // visible width (ignores ANSI)
 const pad = (s, w) => s + " ".repeat(Math.max(0, w - vw(s)));
@@ -266,14 +269,14 @@ const RW = 26; // right-column copy width
 const PITCH = "Install and play the game on your phone for cash rewards, while the agent codes";
 
 /** Styled copy beside the QR. Brand lives in the frame title (not repeated here).
- *  The reward amount rides as a high-contrast cash line when the backend gave us
- *  one; it's omitted gracefully when game.reward is null/absent. */
+ *  The reward amount rides as a gold chip badge when the backend gave us one;
+ *  it's omitted gracefully when game.reward is null/absent. */
 function copyLines(game) {
   return [
     dim("EARN WHILE YOU CODE"),
     "",
     creamB(game.title),
-    ...(game.reward ? [cashB("Earn up to $" + game.reward)] : []),
+    ...(game.reward ? [chip(" up to $" + game.reward + " ")] : []),
     "",
     ...wrap(PITCH, RW).map(dim),
     "",
