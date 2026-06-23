@@ -293,13 +293,13 @@ function colorSupport(env) {
   return "256"; // Apple_Terminal & friends advertise xterm-256color
 }
 
-// Terminals that MANGLE 24-bit truecolor — they parse `38;2;…` as separate SGR
-// codes instead of rendering or ignoring it, so the gold coin comes out as
-// unscannable low-contrast mush. macOS stock Terminal.app is the prime case
-// (TERM_PROGRAM=Apple_Terminal). These get the 256-color full-size coin: same
-// design, colors they CAN render, and no half-block seams. Add others here as
-// they're confirmed — the default assumes truecolor works.
-function manglesTruecolor(env) {
+// Terminals where the packed half-block coin DOESN'T scan, so it needs the
+// full-size (one-module-per-line) coin instead. macOS stock Terminal.app is the
+// prime case (TERM_PROGRAM=Apple_Terminal): it both distorts half-block glyph
+// geometry (a seam through every module pair) AND mangles 24-bit truecolor. We
+// render the coin in 256-color everywhere (see renderQrForTerminal), so the
+// remaining reason for full-size here is the seam. Add others as confirmed.
+function needsFullSize(env) {
   env = env || process.env;
   return /apple_terminal/i.test(env.TERM_PROGRAM || "");
 }
@@ -307,9 +307,12 @@ function manglesTruecolor(env) {
 /**
  * Which coin rendering to use. The QR is ALWAYS the coin — the only question is
  * how to paint it:
- *   "coin"      — fancy truecolor half-block coin. The DEFAULT, everywhere.
- *   "coin-full" — same coin in 256-color, full-size cells, for terminals that
- *                 mangle truecolor (Apple_Terminal).
+ *   "coin"      — 256-color half-block coin. The DEFAULT, everywhere. (256, not
+ *                 24-bit: ~30% fewer escape bytes so the nudge stays under the
+ *                 host's inline-render cap, and it can't be mangled by terminals
+ *                 that lack truecolor. Looks near-identical and scans the same.)
+ *   "coin-full" — same coin, full-size cells, for terminals whose half-blocks
+ *                 don't scan (needsFullSize, e.g. Apple_Terminal).
  *   "reverse"   — NO_COLOR: attribute-only fallback (the coin needs color).
  * Override with HAMSTER_QR_RENDER=coin|coin-full|reverse.
  */
@@ -318,8 +321,8 @@ function qrRenderMode(env) {
   const override = String(env.HAMSTER_QR_RENDER || "").trim().toLowerCase();
   if (override === "coin" || override === "coin-full" || override === "reverse") return override;
   if (env.NO_COLOR) return "reverse";
-  if (manglesTruecolor(env)) return "coin-full";
-  return "coin"; // fancy by default — assume truecolor unless proven otherwise
+  if (needsFullSize(env)) return "coin-full";
+  return "coin";
 }
 
 // 256-color anchors for the no-truecolor fallback: forced black-on-white so the
@@ -439,7 +442,7 @@ function renderQrForTerminal(text, opts) {
   if (mode === "reverse") {
     return { mode, renderer: "renderQrReverse", qr: renderQrReverse(text, opts.reverse) };
   }
-  const coinOpts = Object.assign({ depth: "truecolor", cell: "half" }, opts.coin);
+  const coinOpts = Object.assign({ depth: "256", cell: "half" }, opts.coin);
   return { mode: "coin", renderer: "renderQrCoin", qr: renderQrCoin(text, coinOpts) };
 }
 

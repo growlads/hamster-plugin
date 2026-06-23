@@ -45,6 +45,13 @@ test("the Apple_Terminal coin uses solid 256-color bg cells, not half-block glyp
   assert.doesNotMatch(out, /[▀▄█]/);     // no half-block glyphs (those are what Terminal.app distorts)
 });
 
+test("the default coin uses 256-color, not 24-bit (keeps the nudge under the host render cap)", () => {
+  const env = { TERM: "xterm-256color" };
+  const out = renderQrForTerminal(URL, { env }).qr;
+  assert.match(out, /\x1b\[(38|48);5;\d+m/);   // 256-color escapes
+  assert.doesNotMatch(out, /\x1b\[(38|48);2;/); // no 24-bit truecolor escapes
+});
+
 test("HAMSTER_QR_RENDER overrides the auto choice", () => {
   const env = { TERM: "xterm-256color", HAMSTER_QR_RENDER: "coin-full" };
   assert.equal(qrRenderMode(env), "coin-full");
