@@ -117,7 +117,7 @@ The Mac-native power path (slash-only). Requires macOS 15+ and iPhone Mirroring 
 
 ### Region lock
 
-Besitos serves offers only in **US · CA · GB · DE · FR · IT · ES · AU**. The country that ultimately gates serving is the **phone's IP at scan time** — our `country` param only chooses which catalog we *show*. A phone outside a supported region lands on Besitos' "Games Unavailable" page regardless of our targeting; a VPN on the phone resolves it. This is geography, not a bug — see the README's region note.
+Besitos serves offers only in **US · CA · GB · DE · FR · IT · ES · AU**. The country that ultimately gates serving is the **phone's IP at scan time** — our `country` param only chooses which catalog we *show*. A phone outside a supported region lands on Besitos' "Games Unavailable" page regardless of our targeting. This is geography, not a bug — see the README's region note.
 
 ### Inventory scope
 
