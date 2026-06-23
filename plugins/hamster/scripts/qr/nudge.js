@@ -236,16 +236,28 @@ function termWidth(columns) {
   return Number.isFinite(c) && c > 0 ? c : 0;
 }
 
-// ── styling: brand palette (landing.ts), applied only when color is on ──
+// ── styling: terminal-PALETTE colors (not 24-bit truecolor) so the nudge adapts
+// to BOTH light and dark themes. Hard-coded RGB ignores the terminal theme — the
+// old warm-cream body (near-white) and warm-gray dim washed out on light
+// backgrounds. Instead we reference the terminal's own palette, which each theme
+// remaps to shades readable against its background:
+//   • body / game name → the DEFAULT foreground (no color / bold) — always
+//     contrasts with whatever background is actually behind it.
+//   • muted lines      → the ANSI faint attribute: a quiet shade of the default
+//     fg on any bg; where unsupported it degrades to normal — still readable.
+//   • accents          → the 16 ANSI slots — yellow for the brand gold, green for
+//     the cash line. The theme picks a gold/green that reads on its own bg (on
+//     dark a bright one, on light a deeper one). We use the STANDARD (not
+//     "bright") slots because bright yellow/green wash out on a light background.
 const NO_COLOR = !!process.env.NO_COLOR;
 const E = (s) => "\x1b[" + s + "m", RZ = "\x1b[0m";
-const sty = (codes) => (s) => (NO_COLOR ? s : E(codes) + s + RZ);
-const goldB = sty("1;38;2;255;182;39"); // bright gold — frame title
-const gold = sty("38;2;240;138;36");    // deep gold — frame, CTA arrow
-const cream = sty("38;2;240;234;222");  // warm off-white — body
-const creamB = sty("1;38;2;245;240;232"); // bold warm white — game name
-const dim = sty("38;2;146;136;122");    // muted warm gray — kicker, pitch
-const cashB = sty("1;38;2;46;204;113"); // cash green + bold — reward amount (qr-block GREEN)
+const sty = (codes) => (s) => (NO_COLOR || !codes ? s : E(codes) + s + RZ);
+const goldB = sty("1;33"); // bold yellow — frame title, /wallet callout, ✦
+const gold = sty("33");    // yellow — frame border, CTA arrow, " · play"
+const cream = sty("");     // default foreground — body copy
+const creamB = sty("1");   // bold default fg — game name
+const dim = sty("2");      // faint default fg — kicker, pitch, secondary lines
+const cashB = sty("1;32"); // bold green — reward / earnings amount
 
 const vw = displayWidth; // visible width (ignores ANSI)
 const pad = (s, w) => s + " ".repeat(Math.max(0, w - vw(s)));

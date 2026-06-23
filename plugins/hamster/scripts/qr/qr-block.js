@@ -24,14 +24,14 @@ const HONEY = "255;182;39"; // --honey       (#ffb627)
 const DEEP = "240;138;36";  // --honey-deep  (#f08a24)
 const GREEN = "46;204;113"; // the $ — a "real cash" green that pops on the gold
 
-// Minted-coin palette (renderQrCoin). The coin paints its OWN deep background, so
-// — unlike the flush half-block QR, which borrows the terminal's dark bg as its
+// Gold-on-face palette (renderQrCoin). The renderer paints its OWN deep background,
+// so — unlike the flush half-block QR, which borrows the terminal's dark bg as its
 // quiet zone and therefore washes out / won't scan on a LIGHT terminal — it stays
-// scannable on any terminal. Gold modules on the deep face read as an inverted QR;
-// a struck "rim" line + a ring of reeding ticks frame it like a coin. RGB triples
-// (not "r;g;b" strings) because the coin sets an explicit background per cell.
-const COIN_FACE = [22, 15, 9];      // deep warm near-black — the coin body
-const COIN_RIM = [255, 198, 88];    // bright struck gold — rim line + reeding ticks
+// scannable on any terminal. Gold modules on the deep face read as an inverted QR.
+// No decorative rim/reeding (removed by product call) — just the code on a thin
+// deep-face quiet zone. RGB triples (not "r;g;b" strings) because it sets an
+// explicit background per cell.
+const COIN_FACE = [22, 15, 9];      // deep warm near-black — the face / quiet zone
 const COIN_FINDER = [255, 182, 39]; // = HONEY, as RGB — the finder eyes
 const COIN_DATA = [240, 138, 36];   // = DEEP, as RGB — the data modules
 
@@ -73,7 +73,7 @@ function displayWidth(s) {
 function renderQrBlock(text, opts) {
   opts = opts || {};
   const ecc = opts.ecc || "L";
-  const margin = opts.margin == null ? 1 : opts.margin;
+  const margin = opts.margin == null ? 0 : opts.margin; // touch-to-touch: no border
   const color = !!opts.color;
   const twoTone = !!opts.twoTone;
   const badge = !!opts.badge;
@@ -149,18 +149,24 @@ function renderQrBlock(text, opts) {
 }
 
 /**
- * Render `text` as a "minted coin": a SELF-CONTAINED QR that paints its own deep
- * background, a struck-gold rim, and a ring of evenly-spaced reeding ticks. Where
- * renderQrBlock paints only the dark modules and rides the terminal's own dark
- * background as the quiet zone (so it vanishes / won't scan on a light terminal),
- * the coin carries everything it needs to scan on ANY terminal.
+ * Render `text` as a borderless gold QR on a deep face: a SELF-CONTAINED QR that
+ * paints its own deep background but NO decorative frame. Where renderQrBlock
+ * paints only the dark modules and rides the terminal's own dark background as the
+ * quiet zone (so it vanishes / won't scan on a light terminal), this carries its
+ * own deep face, so it scans on ANY terminal — while staying as compact as the
+ * code allows.
+ *
+ * The struck-gold rim line and ring of reeding ticks (the "fancy border") were
+ * removed by product call: they ate space without earning it. What's left is a
+ * thin (1-module) deep-face quiet zone hugging the code, with softly rounded
+ * corners — touch-to-touch, no frame.
  *
  * Built from ▀ half-blocks: the top half is the foreground, the bottom half the
  * background, so each glyph stacks two module rows; a transparent half drops to
  * the terminal bg (▄ flips which half shows). Per-cell colors are run-length
  * encoded to keep the escape volume down — this rides every prompt.
  *
- * SAME coin design, two render settings (so we never ship a second QR):
+ * SAME design, two render settings (so we never ship a second QR):
  *   depth — "truecolor" (default, 24-bit `38;2`) or "256" (`38;5`). 256 is for
  *           terminals that MANGLE truecolor (Apple_Terminal) but render 256 fine.
  *   cell  — "half" (default): ▀ half-blocks, two module rows per line, compact.
@@ -169,25 +175,24 @@ function renderQrBlock(text, opts) {
  *           geometry that macOS Terminal.app distorts — so it scans there.
  *
  * Other options:
- *   quiet  — dark modules between the code and the rim (the scan quiet zone).
- *   margin — cells of reeding / breathing room outside the coin.
+ *   quiet  — deep-face modules of quiet zone hugging the code (default 1).
+ *   margin — extra transparent cells of breathing room outside the face (default 0).
  *   cellWidth — columns per module in "full" mode (default 2, keeps modules square).
- *   colors — { finder, data, rim, face } as RGB triples ([r,g,b]).
+ *   colors — { finder, data, face } as RGB triples ([r,g,b]).
  * Returns a newline-joined string (same contract as renderQrBlock). For NO_COLOR,
  * the caller should fall back to renderQrReverse (the coin needs color).
  */
 function renderQrCoin(text, opts) {
   opts = opts || {};
   const ecc = opts.ecc || "L";
-  const quiet = opts.quiet == null ? 3 : opts.quiet;
-  const margin = opts.margin == null ? 2 : opts.margin;
+  const quiet = opts.quiet == null ? 1 : opts.quiet;
+  const margin = opts.margin == null ? 0 : opts.margin;
   const depth = opts.depth === "256" ? "256" : "truecolor";
   const full = opts.cell === "full";
   const cellWidth = opts.cellWidth == null ? 2 : Math.max(1, opts.cellWidth);
   const colors = opts.colors || {};
   const finder = colors.finder || COIN_FINDER;
   const data = colors.data || COIN_DATA;
-  const rim = colors.rim || COIN_RIM;
   const face = colors.face || COIN_FACE;
 
   const qr = qrcode(0, ecc);
@@ -206,19 +211,14 @@ function renderQrCoin(text, opts) {
     return { dr, dc, cheb: Math.max(dr, dc), euc: Math.hypot(dr, dc) };
   };
   const inCoin = (g) => g.euc <= quiet + 0.5;        // a round face → rounded corners
-  const onRim = (g) => inCoin(g) && g.euc >= quiet - 0.4;
 
   // The color of any module coord, or null = transparent (show the terminal bg).
+  // No rim, no reeding — just the code on a thin deep-face quiet zone.
   const sample = (r, c) => {
     if (isDark(r, c)) return isFinder(r, c) ? finder : data;
     const g = geom(r, c);
     if (g.cheb === 0) return face;                    // a light module, on the face
-    if (inCoin(g)) return onRim(g) ? rim : face;
-    if (g.cheb - quiet === 1) {                       // reeding: the first ring out
-      const along = g.dr >= g.dc ? c : r;             // run ticks along the edge…
-      const corner = g.dr > quiet && g.dc > quiet;    // …but skip the four corners
-      if (!corner && (((along % 2) + 2) % 2) === 0) return rim;
-    }
+    if (inCoin(g)) return face;                       // thin deep-face quiet zone
     return null;
   };
 
@@ -341,7 +341,7 @@ const BW_PAPER = 231; // near-white
 function renderQrBw(text, opts) {
   opts = opts || {};
   const ecc = opts.ecc || "L";
-  const quiet = opts.quiet == null ? 2 : opts.quiet;
+  const quiet = opts.quiet == null ? 0 : opts.quiet; // touch-to-touch: no quiet-zone border
   const qr = qrcode(0, ecc);
   qr.addData(text);
   qr.make();
@@ -376,7 +376,7 @@ function renderQrBw(text, opts) {
 function renderQrFullBw(text, opts) {
   opts = opts || {};
   const ecc = opts.ecc || "L";
-  const quiet = opts.quiet == null ? 2 : opts.quiet;
+  const quiet = opts.quiet == null ? 0 : opts.quiet; // touch-to-touch: no quiet-zone border
   const cellWidth = opts.cellWidth == null ? 2 : Math.max(1, opts.cellWidth);
   const qr = qrcode(0, ecc);
   qr.addData(text);
@@ -415,7 +415,7 @@ function renderQrFullBw(text, opts) {
 function renderQrReverse(text, opts) {
   opts = opts || {};
   const ecc = opts.ecc || "L";
-  const quiet = opts.quiet == null ? 2 : opts.quiet;
+  const quiet = opts.quiet == null ? 0 : opts.quiet; // touch-to-touch: no quiet-zone border
   const qr = qrcode(0, ecc);
   qr.addData(text);
   qr.make();
@@ -467,7 +467,7 @@ const QUAD = [
 function renderQrCompactLines(text, opts) {
   opts = opts || {};
   const ecc = opts.ecc || "L";
-  const margin = opts.margin == null ? 1 : opts.margin;
+  const margin = opts.margin == null ? 0 : opts.margin; // touch-to-touch: no border
 
   const qr = qrcode(0, ecc);
   qr.addData(text);
