@@ -339,8 +339,18 @@ function buildNudge(game, opts = {}) {
   //   coin    → truecolor terminals get the gold minted coin
   //   full    → 256-color terminals get full background cells, reliable in Terminal.app
   //   reverse → NO_COLOR gets an attribute-only QR
-  const qr = renderQrForTerminal(game.url, { env: opts.env || process.env }).qr.split("\n");
+  const rendered = renderQrForTerminal(game.url, { env: opts.env || process.env });
+  const qr = rendered.qr.split("\n");
   const copy = copyLines(game);
+
+  // Full-size QR (Apple_Terminal et al.) is the byte-heavy case: even as plain
+  // B/W it's a tall block, and wrapping it in the framed card adds a truecolor
+  // `│` escape on BOTH edges of every row (~1.4KB) plus alignment padding —
+  // enough to push the systemMessage past the host's ~10KB inline-render cap (it
+  // then collapses to a "preview + saved to file"). The stacked layout has no
+  // frame and no per-row padding, so it keeps the big QR comfortably under the
+  // cap. The default coin is small enough to keep the nicer framed card.
+  if (rendered.mode === "coin-full") return stacked(qr, copy);
 
   const qrW = Math.max(...qr.map(vw));
   const copyW = Math.max(RW, ...copy.map(vw));

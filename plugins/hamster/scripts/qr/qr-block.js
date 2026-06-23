@@ -436,8 +436,13 @@ function renderQrForTerminal(text, opts) {
   const env = opts.env || process.env;
   const mode = opts.mode || qrRenderMode(env);
   if (mode === "coin-full") {
-    const coinOpts = Object.assign({ depth: "256", cell: "full" }, opts.coinFull);
-    return { mode, renderer: "renderQrCoin", qr: renderQrCoin(text, coinOpts) };
+    // Full-size terminals (e.g. Apple_Terminal) can't afford the coin's gradient:
+    // each color change is a ~7-byte SGR escape and the fancy full-size coin runs
+    // ~13KB, past the host's ~10KB systemMessage cap (it collapses to a "preview +
+    // saved to file" and never renders). A plain 2-color B/W QR only switches
+    // ink/paper, so run-length encoding nearly eliminates escapes (~5.5KB) — it
+    // scans the same, stays glyph-free (seam-proof on Terminal.app), and fits.
+    return { mode, renderer: "renderQrFullBw", qr: renderQrFullBw(text, opts.coinFull) };
   }
   if (mode === "reverse") {
     return { mode, renderer: "renderQrReverse", qr: renderQrReverse(text, opts.reverse) };

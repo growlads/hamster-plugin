@@ -26,10 +26,14 @@ test("truecolor terminals select the minted coin QR", () => {
   assert.equal(renderQrForTerminal(URL, { env }).renderer, "renderQrCoin");
 });
 
-test("Apple Terminal selects the full-size coin (same design, 256-color)", () => {
+test("Apple Terminal selects the simple full-size B/W QR (scannable + under the render cap)", () => {
+  // Full-size terminals get a plain 2-color QR, not the fancy coin: the coin's
+  // gradient blows the systemMessage past the host's ~10KB inline cap (previews
+  // instead of rendering). B/W run-length-encodes to ~half the bytes and scans
+  // the same on Terminal.app.
   const env = { TERM: "xterm-256color", TERM_PROGRAM: "Apple_Terminal" };
   assert.equal(qrRenderMode(env), "coin-full");
-  assert.equal(renderQrForTerminal(URL, { env }).renderer, "renderQrCoin");
+  assert.equal(renderQrForTerminal(URL, { env }).renderer, "renderQrFullBw");
 });
 
 test("NO_COLOR selects the reverse-video QR", () => {
