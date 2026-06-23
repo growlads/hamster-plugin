@@ -258,9 +258,12 @@ const cream = sty("");     // default foreground — body copy
 const creamB = sty("1");   // bold default fg — game name
 const dim = sty("2");      // faint default fg — kicker, pitch, secondary lines
 const cashB = sty("1;32"); // bold green — earnings topper amount
-// Reward badge: bold ink on a gold (yellow-bg) chip. ANSI slots (43 bg / 30 fg)
-// so the theme picks a gold that reads on its own background, same as `gold`.
-const chip = sty("1;30;43");
+// Reward badge: bold black ink on a gold (yellow-bg) chip. The text is TRUE black
+// (truecolor 0,0,0), NOT the ANSI black slot (30) — bold+30 gets auto-brightened
+// to gray on many terminals and some themes remap slot 0, either of which washes
+// out on yellow. True black reads on yellow in every theme. The bg stays the `43`
+// yellow slot so it matches the frame's gold (33).
+const chip = sty("1;38;2;0;0;0;43");
 
 const vw = displayWidth; // visible width (ignores ANSI)
 const pad = (s, w) => s + " ".repeat(Math.max(0, w - vw(s)));
