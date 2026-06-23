@@ -58,6 +58,17 @@ Fetch and summarize the user's earnings from the Hamster backend.
 
    > 💛 Credits usually land ~15 min after you play, sometimes longer.
 
+   **e) Point to the fast path.** This skill spent a full agent turn because the
+   user asked in their own words. The explicit command is the intended path —
+   Hamster serves it instantly, with **no agent turn**. Close with one short,
+   friendly line telling the user how to run it directly next time, using the
+   command syntax for the agent they're in:
+   - **Claude Code:** `/hamster:wallet` (or the bare `/wallet`)
+   - **Codex:** `@hamster:wallet`
+   - **Other agents:** their own command prefix (a leading `/`, `@`, etc.).
+
+   e.g. *"Tip: next time just type `/hamster:wallet` — it's instant, no need to ask."*
+
 ## Paging into older history
 
 When the user asks to "show older", "see more", "next page", etc., re-run the

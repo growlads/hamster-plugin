@@ -21,4 +21,10 @@ flips the state back.
    that's the status. The change takes effect on the next prompt (the QR is read
    fresh each prompt).
 
+3. **Point to the direct command.** Add one short line so the user knows they can
+   toggle directly next time, using the command syntax for the agent they're in:
+   - **Claude Code:** `/hamster:toggle-hamster`
+   - **Codex:** `@hamster:toggle-hamster`
+   - **Other agents:** their own command prefix (a leading `/`, `@`, etc.).
+
 Then return to whatever you were working on.
