@@ -13,20 +13,25 @@
 // the banner lives outside the plugin system). See plugins/hamster/AGENTS.md.
 "use strict";
 
-// Brand palette (landing.ts) + a cash-green "live" status. Color is decided PER
-// CALL, not at module load: pass `color` to buildWelcome to force it on/off,
-// otherwise it follows NO_COLOR. The Codex banner is a static snapshot, so it
-// passes `color: true` — otherwise it would freeze plain whenever it happens to
-// be generated from a NO_COLOR / non-interactive shell (CI, agents, pipes).
+// Terminal-PALETTE colors (not 24-bit truecolor) so the greeting reads on BOTH
+// light and dark themes — same approach as the QR nudge (see nudge.js styling
+// note). Hard-coded RGB ignored the terminal theme, so the near-white value line
+// vanished on light backgrounds. We instead use the default foreground for body
+// text and ANSI palette slots the theme remaps to readable shades; the status
+// chips keep an explicit background so their dark text reads on either theme.
+// Color is decided PER CALL, not at module load: pass `color` to buildWelcome to
+// force it on/off, otherwise it follows NO_COLOR. The Codex banner is a static
+// snapshot, so it passes `color: true` — otherwise it would freeze plain whenever
+// it happens to be generated from a NO_COLOR / non-interactive shell.
 const E = (s) => "\x1b[" + s + "m", R = "\x1b[0m";
 function palette(useColor) {
-  const sty = (codes) => (s) => (useColor ? E(codes) + s + R : s);
+  const sty = (codes) => (s) => (!useColor || !codes ? s : E(codes) + s + R);
   return {
-    goldB: sty("1;38;2;255;182;39"),
-    cream: sty("38;2;240;234;222"),
-    creamB: sty("1;38;2;245;240;232"),
-    dim: sty("38;2;146;136;122"),
-    faint: sty("38;2;112;104;92"),                      // frame
+    goldB: sty("1;33"),                                 // bold yellow — brand "hamster"
+    cream: sty(""),                                     // default foreground — body
+    creamB: sty("1"),                                   // bold default fg — value line
+    dim: sty("90"),                                     // muted gray (bright-black) — " · play", hints
+    faint: sty("90"),                                   // muted gray — frame border
     greenChip: sty("1;48;2;46;204;113;38;2;20;40;26"),  // green bg, dark text — "LIVE"
     pausedChip: sty("1;48;2;90;84;74;38;2;232;226;216"), // muted gray bg, light text — "PAUSED"
   };

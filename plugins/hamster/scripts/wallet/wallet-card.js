@@ -31,11 +31,11 @@ function palette(color) {
   };
 }
 
-/** Credits with two decimals. Non-numbers fail soft to "0.00 credits" so a
- *  malformed field never throws mid-render. */
+/** Whole credits (no decimals) — credits are integers (round(payout × 10)).
+ *  Non-numbers fail soft to "0 credits" so a malformed field never throws. */
 function credits(n) {
   const v = Number(n);
-  return (Number.isFinite(v) ? v : 0).toFixed(2) + " credits";
+  return Math.round(Number.isFinite(v) ? v : 0).toLocaleString("en-US") + " credits";
 }
 
 /** Truncate to `w` columns with an ellipsis, so a long game title can't blow out

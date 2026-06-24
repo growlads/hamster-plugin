@@ -25,17 +25,18 @@ const STATS = {
   ],
 };
 
-test("credits formats to two decimals with a credits suffix", () => {
-  assert.equal(credits(12.5), "12.50 credits");
-  assert.equal(credits(0), "0.00 credits");
-  assert.equal(credits(null), "0.00 credits");
-  assert.equal(credits("nonsense"), "0.00 credits");
+test("credits formats as a whole number with a credits suffix", () => {
+  assert.equal(credits(20), "20 credits");
+  assert.equal(credits(1234), "1,234 credits"); // thousands separator, no decimals
+  assert.equal(credits(0), "0 credits");
+  assert.equal(credits(null), "0 credits");
+  assert.equal(credits("nonsense"), "0 credits");
 });
 
 test("buildWallet leads with balance and lifetime", () => {
   const out = plain(buildWallet(STATS, { color: false }));
-  assert.match(out, /90\.00 credits/, "shows balance");
-  assert.match(out, /100\.00 credits/, "shows lifetime earned");
+  assert.match(out, /90 credits/, "shows balance");
+  assert.match(out, /100 credits/, "shows lifetime earned");
   assert.match(out, /balance/i);
   assert.match(out, /lifetime/i);
 });
@@ -43,20 +44,20 @@ test("buildWallet leads with balance and lifetime", () => {
 test("buildWallet lists recent rewards with game and amount", () => {
   const out = plain(buildWallet(STATS, { color: false }));
   assert.match(out, /Coin Quest/);
-  assert.match(out, /10\.00 credits/);
+  assert.match(out, /10 credits/);
 });
 
 test("reversed rows are flagged and not shown as positive", () => {
   const out = plain(buildWallet(STATS, { color: false }));
   // The clawback amount appears with a minus sign, never as a bare +10.00 credits.
-  assert.match(out, /-\s?10\.00 credits|−10\.00 credits/, "reversed amount shown as negative");
+  assert.match(out, /-\s?10 credits|−10 credits/, "reversed amount shown as negative");
   assert.match(out, /revers|↩/i, "reversed row is tagged");
 });
 
 test("context line shows sessions and reversed total only when relevant", () => {
   const out = plain(buildWallet(STATS, { color: false }));
   assert.match(out, /3 sessions/);
-  assert.match(out, /10\.00 credits reversed/);
+  assert.match(out, /10 credits reversed/);
 
   // No reversed total (or row) when nothing was clawed back.
   const clean = plain(
@@ -101,7 +102,7 @@ test("color:false emits zero ANSI escapes; color:true emits some", () => {
 
   const colored = buildWallet(STATS, { color: true });
   assert.notEqual(colored, plain(colored), "has escapes when color is on");
-  assert.match(plain(colored), /90\.00 credits/, "still renders the same content");
+  assert.match(plain(colored), /90 credits/, "still renders the same content");
 });
 
 test("isWalletCommand matches the explicit command forms only", () => {

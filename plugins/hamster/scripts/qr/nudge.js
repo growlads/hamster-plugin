@@ -109,7 +109,7 @@ async function fetchFeatured(ms) {
     const g = (await r.json()).game || {};
     const url = g.go_url || g.click_url;
     if (!url) return null;
-    const reward = typeof g.reward_usd_total === "number" ? g.reward_usd_total.toFixed(2) : null;
+    const reward = typeof g.reward_usd_total === "number" ? Math.round(g.reward_usd_total).toLocaleString("en-US") : null;
     // We intentionally ignore the game's own store description here — the nudge
     // copy is short, authored marketing (see buildNudge), not the long blurb.
     return { title: g.title || "a rewarded game", url, reward };
@@ -153,7 +153,7 @@ async function fetchEarnings(ms) {
     const count = Number(e.count) || 0;
     const total = Number(e.total_usd) || 0;
     if (count <= 0 || total <= 0) return null;
-    return { count, total: total.toFixed(2) };
+    return { count, total: Math.round(total).toLocaleString("en-US") };
   } catch {
     return null;
   }
@@ -243,8 +243,9 @@ function termWidth(columns) {
 // remaps to shades readable against its background:
 //   • body / game name → the DEFAULT foreground (no color / bold) — always
 //     contrasts with whatever background is actually behind it.
-//   • muted lines      → the ANSI faint attribute: a quiet shade of the default
-//     fg on any bg; where unsupported it degrades to normal — still readable.
+//   • muted lines      → ANSI "bright black" (slot 8): a real muted gray the
+//     theme keeps readable on its own bg. We do NOT use the faint attribute (2m)
+//     — terminals like macOS Terminal render it so washed-out it's hard to read.
 //   • accents          → the 16 ANSI slots — yellow for the brand gold, green for
 //     the cash line. The theme picks a gold/green that reads on its own bg (on
 //     dark a bright one, on light a deeper one). We use the STANDARD (not
@@ -256,7 +257,7 @@ const goldB = sty("1;33"); // bold yellow — frame title, /wallet callout, ✦
 const gold = sty("33");    // yellow — frame border, CTA arrow, " · play"
 const cream = sty("");     // default foreground — body copy
 const creamB = sty("1");   // bold default fg — game name
-const dim = sty("2");      // faint default fg — kicker, pitch, secondary lines
+const dim = sty("90");     // muted gray (bright-black slot) — kicker, pitch, secondary lines
 const cashB = sty("1;32"); // bold green — earnings topper amount
 // Reward badge: bold black ink on a gold (yellow-bg) chip. The text is TRUE black
 // (truecolor 0,0,0), NOT the ANSI black slot (30) — bold+30 gets auto-brightened
@@ -297,8 +298,8 @@ function copyLines(game) {
  * The earnings topper: a tasteful one-time "you got paid" line that rides above
  * the QR card on the next nudge after rewards land. Only ever shown when the
  * backend reports unseen credits (which it then marks read), so it never repeats
- * and never appears empty. `e` is `{ count, total }` with total pre-formatted to
- * cents. Kept to two slim lines — a flush-left headline, not a second framed box
+ * and never appears empty. `e` is `{ count, total }` with total a pre-formatted
+ * whole-credit string. Kept to two slim lines — a flush-left headline, not a box
  * competing with the gold card beneath it.
  */
 function buildEarnings(e) {

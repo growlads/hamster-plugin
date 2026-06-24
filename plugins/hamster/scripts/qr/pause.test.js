@@ -42,9 +42,9 @@ test("isPausedValue (toggle) matches the nudge gate semantics", () => {
 });
 
 test("nudge copy shows the credits badge + run-wallet credit CTA when a reward is present", () => {
-  // Every ad action grants the flat reward (REWARD_CREDITS, default 10).
-  const card = plain(buildNudge({ title: "Coin Quest", url: "https://x/go", reward: "10.00" }));
-  assert.match(card, /10\.00 credits/);
+  // Credits are whole numbers (round(payout × 10)); the backend sends them pre-formatted.
+  const card = plain(buildNudge({ title: "Coin Quest", url: "https://x/go", reward: "25" }));
+  assert.match(card, /25 credits/);
   assert.match(card, /EARN WHILE YOU CODE/);
   assert.match(card, /Scan to start/);
   assert.match(card, /Credits land ~15 min later\./);
@@ -60,14 +60,14 @@ test("nudge omits the credits badge gracefully when reward is null", () => {
 });
 
 test("earnings banner pluralizes rewards and shows the formatted total + wallet CTA", () => {
-  // 3 ad actions at the flat 10 each → 30.00 credits.
-  const many = plain(buildEarnings({ count: 3, total: "30.00" }));
-  assert.match(many, /\+30\.00 credits earned while you coded/);
+  // Three conversions totalling 30 credits (whole-number credits).
+  const many = plain(buildEarnings({ count: 3, total: "30" }));
+  assert.match(many, /\+30 credits earned while you coded/);
   assert.match(many, /3 rewards cleared/);
   assert.match(many, /run \/wallet to see the breakdown/);
 
-  const one = plain(buildEarnings({ count: 1, total: "10.00" }));
-  assert.match(one, /\+10\.00 credits earned while you coded/);
+  const one = plain(buildEarnings({ count: 1, total: "10" }));
+  assert.match(one, /\+10 credits earned while you coded/);
   assert.match(one, /1 reward cleared/);
   assert.doesNotMatch(one, /1 rewards/); // singular, not "1 rewards"
 });
