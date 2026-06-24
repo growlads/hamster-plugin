@@ -4,8 +4,8 @@
 
 A Claude Code plugin. It greets you when your session starts, then shows a small
 QR card for a live rewarded game on **every** prompt (works on **any OS**, never
-blocks your prompt) — scan it with your phone, install the game, and earn real USD
-as you hit in-game goals. Run **`/wallet`** to see your earnings; check it
+blocks your prompt) — scan it with your phone, install the game, and earn
+**credits** as you hit in-game goals. Run **`/wallet`** to see your earnings; check it
 ~15 min after you play for your credits to land.
 
 The plugin never talks to any offerwall directly — it only calls the Hamster

@@ -41,9 +41,10 @@ test("isPausedValue (toggle) matches the nudge gate semantics", () => {
   assert.equal(isPausedValue(""), false);
 });
 
-test("nudge copy shows the cash line + run-wallet credit CTA when a reward is present", () => {
-  const card = plain(buildNudge({ title: "Coin Quest", url: "https://x/go", reward: "4.50" }));
-  assert.match(card, /Earn up to \$4\.50/);
+test("nudge copy shows the credits badge + run-wallet credit CTA when a reward is present", () => {
+  // Every ad action grants the flat reward (REWARD_CREDITS, default 10).
+  const card = plain(buildNudge({ title: "Coin Quest", url: "https://x/go", reward: "10.00" }));
+  assert.match(card, /10\.00 credits/);
   assert.match(card, /EARN WHILE YOU CODE/);
   assert.match(card, /Scan to start/);
   assert.match(card, /Credits land ~15 min later\./);
@@ -52,20 +53,21 @@ test("nudge copy shows the cash line + run-wallet credit CTA when a reward is pr
   assert.doesNotMatch(card, /\/hamster:wallet/);
 });
 
-test("nudge omits the cash line gracefully when reward is null", () => {
+test("nudge omits the credits badge gracefully when reward is null", () => {
   const card = buildNudge({ title: "Coin Quest", url: "https://x/go", reward: null });
-  assert.doesNotMatch(card, /Earn up to/);
+  assert.doesNotMatch(card, /\d+\.\d{2} credits/);
   assert.match(card, /Coin Quest/);
 });
 
 test("earnings banner pluralizes rewards and shows the formatted total + wallet CTA", () => {
-  const many = plain(buildEarnings({ count: 3, total: "1.26" }));
-  assert.match(many, /\+\$1\.26 earned while you coded/);
+  // 3 ad actions at the flat 10 each → 30.00 credits.
+  const many = plain(buildEarnings({ count: 3, total: "30.00" }));
+  assert.match(many, /\+30\.00 credits earned while you coded/);
   assert.match(many, /3 rewards cleared/);
   assert.match(many, /run \/wallet to see the breakdown/);
 
-  const one = plain(buildEarnings({ count: 1, total: "0.42" }));
-  assert.match(one, /\+\$0\.42 earned while you coded/);
+  const one = plain(buildEarnings({ count: 1, total: "10.00" }));
+  assert.match(one, /\+10\.00 credits earned while you coded/);
   assert.match(one, /1 reward cleared/);
   assert.doesNotMatch(one, /1 rewards/); // singular, not "1 rewards"
 });

@@ -31,11 +31,11 @@ function palette(color) {
   };
 }
 
-/** Money as USD with two decimals. Non-numbers fail soft to $0.00 so a malformed
- *  field never throws mid-render. */
-function usd(n) {
+/** Credits with two decimals. Non-numbers fail soft to "0.00 credits" so a
+ *  malformed field never throws mid-render. */
+function credits(n) {
   const v = Number(n);
-  return "$" + (Number.isFinite(v) ? v : 0).toFixed(2);
+  return (Number.isFinite(v) ? v : 0).toFixed(2) + " credits";
 }
 
 /** Truncate to `w` columns with an ellipsis, so a long game title can't blow out
@@ -99,13 +99,13 @@ function buildWallet(stats, opts) {
 
   // Headline: the two numbers that matter, labels aligned to a common width.
   const LW = "Lifetime earned".length + 1;
-  lines.push(p.dim(padEnd("Balance", LW)) + p.cashB(usd(s.balance_usd)));
-  lines.push(p.dim(padEnd("Lifetime earned", LW)) + p.creamB(usd(s.lifetime_usd)));
+  lines.push(p.dim(padEnd("Balance", LW)) + p.cashB(credits(s.balance_usd)));
+  lines.push(p.dim(padEnd("Lifetime earned", LW)) + p.creamB(credits(s.lifetime_usd)));
 
   // Context line: sessions, and reversed total only if anything was clawed back.
   const ctx = [];
   if (sessions > 0) ctx.push(sessions + (sessions === 1 ? " session" : " sessions"));
-  if (reversedTotal > 0) ctx.push(usd(reversedTotal) + " reversed");
+  if (reversedTotal > 0) ctx.push(credits(reversedTotal) + " reversed");
   if (ctx.length) lines.push(p.dim(ctx.join("  ·  ")));
 
   lines.push("");
@@ -127,10 +127,10 @@ function buildWallet(stats, opts) {
       if (r.reversed) {
         // A clawback: shown as negative + tagged, dimmed, and NEVER folded into the
         // positive balance/lifetime (the backend already excludes it from those).
-        const row = p.dim(date + "  " + game + "  −" + usd(r.amount_usd) + " ↩ reversed");
+        const row = p.dim(date + "  " + game + "  −" + credits(r.amount_usd) + " ↩ reversed");
         lines.push(row);
       } else {
-        lines.push(p.cream(date) + "  " + p.cream(game) + "  " + p.creamB(usd(r.amount_usd)));
+        lines.push(p.cream(date) + "  " + p.cream(game) + "  " + p.creamB(credits(r.amount_usd)));
       }
     }
 
@@ -169,4 +169,4 @@ function isWalletCommand(prompt) {
   return /^[/$]?(hamster:)?wallet$/i.test(String(prompt).trim());
 }
 
-module.exports = { buildWallet, isWalletCommand, usd, vw };
+module.exports = { buildWallet, isWalletCommand, credits, vw };

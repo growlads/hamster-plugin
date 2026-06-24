@@ -23,7 +23,8 @@ Fetch and summarize the user's earnings from the Hamster backend.
      `bash ${CLAUDE_SKILL_DIR}/scripts/wallet.sh --offset 20`.
 
 2. **Render a clean ledger.** Warm, scannable, honey-brand tone. Tight — no
-   filler. Format all money as USD with two decimals (e.g. `$12.50`). Structure:
+   filler. These are **credits**, not real money — format every amount as credits
+   with two decimals (e.g. `12.50 credits`), never with a `$`. Structure:
 
    **a) Headline.** Lead with the two numbers that matter, on their own lines:
    - 🐹 **Balance:** `balance_usd` — what's available now.
@@ -39,8 +40,8 @@ Fetch and summarize the user's earnings from the Hamster backend.
 
    - **Date** = `date`, **Game** = `game`, **What** = `note`, **Amount** = `amount_usd`.
    - For any row with `reversed: true`, mark it clearly as a clawback: prefix the
-     amount with `−` and tag it, e.g. `~~$1.50~~ (reversed)`. These are NOT part
-     of lifetime/balance — never let them inflate the positive totals you show.
+     amount with `−` and tag it, e.g. `~~1.50 credits~~ (reversed)`. These are NOT
+     part of lifetime/balance — never let them inflate the positive totals you show.
    - If `recent` is empty, skip the table and say something encouraging like
      "No rewards yet — play a game while Claude codes and they'll show up here."
    - Showing the most recent ~10–20 rows is fine; this is static text.

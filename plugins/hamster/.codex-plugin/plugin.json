@@ -1,6 +1,6 @@
 {
   "name": "hamster",
-  "description": "Win rewards while your agent codes. A QR card appears on every prompt for a live rewarded game — scan it with your phone (any OS), install the game, and earn real USD as you hit in-game goals. /wallet shows your earnings.",
+  "description": "Win rewards while your agent codes. A QR card appears on every prompt for a live rewarded game — scan it with your phone (any OS), install the game, and earn credits as you hit in-game goals. /wallet shows your earnings.",
   "author": {
     "name": "Growl",
     "email": "sahil@withgrowl.com"

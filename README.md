@@ -4,7 +4,7 @@
 
 Hamster is a [Claude Code](https://claude.com/claude-code) plugin. While Claude
 works a long task, scan a QR code, install a rewarded game on your phone, and earn
-**real USD** as you hit in-game goals. `/wallet` shows what you've made — keep
+**credits** as you hit in-game goals. `/wallet` shows what you've made — keep
 coding, your phone earns on the side.
 
 ---

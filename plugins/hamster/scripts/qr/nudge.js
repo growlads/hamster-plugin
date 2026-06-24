@@ -269,7 +269,7 @@ const vw = displayWidth; // visible width (ignores ANSI)
 const pad = (s, w) => s + " ".repeat(Math.max(0, w - vw(s)));
 
 const RW = 26; // right-column copy width
-const PITCH = "Install and play the game on your phone for cash rewards, while the agent codes";
+const PITCH = "Install and play the game on your phone to earn credits, while the agent codes";
 
 /** Styled copy beside the QR. Brand lives in the frame title (not repeated here).
  *  The reward amount rides as a gold chip badge when the backend gave us one;
@@ -279,7 +279,7 @@ function copyLines(game) {
     dim("EARN WHILE YOU CODE"),
     "",
     creamB(game.title),
-    ...(game.reward ? [chip(" up to $" + game.reward + " ")] : []),
+    ...(game.reward ? [chip(" " + game.reward + " credits ")] : []),
     "",
     ...wrap(PITCH, RW).map(dim),
     "",
@@ -303,7 +303,7 @@ function copyLines(game) {
  */
 function buildEarnings(e) {
   const rewards = e.count === 1 ? "1 reward" : e.count + " rewards";
-  const head = goldB("✦ ") + cashB("+$" + e.total) + cream(" earned while you coded");
+  const head = goldB("✦ ") + cashB("+" + e.total + " credits") + cream(" earned while you coded");
   const sub =
     dim(rewards + " cleared — ") + cream("run ") + goldB("/wallet") + cream(" to see the breakdown");
   return head + "\n" + sub;

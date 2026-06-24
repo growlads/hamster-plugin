@@ -3,7 +3,7 @@
 Hamster is three parts:
 
 - **Plugin** (Claude Code) — hooks, commands, and skills. Talks **only** to our backend with a per-user bearer token. Renders QR codes locally in Node (vendored, no native deps). Never sees Besitos credentials, raw payouts, or other users' data.
-- **Backend** (Cloudflare Worker + D1) — the only thing that talks to Besitos. Mints user tokens, fetches live offers, serves the monitored `/go` redirect the QR points at, receives reward postbacks, and keeps the USD ledger.
+- **Backend** (Cloudflare Worker + D1) — the only thing that talks to Besitos. Mints user tokens, fetches live offers, serves the monitored `/go` redirect the QR points at, receives reward postbacks, and keeps the credits ledger.
 - **Besitos** ([wall.besitos.ai](https://help.besitoscorp.com)) — the offerwall. Reached server-to-server only.
 
 ```
@@ -89,7 +89,7 @@ No Mac required; works on macOS, Windows, and Linux.
 2. **Plugin → `GET /v1/featured`** (bearer). The backend reads the request's **country** from Cloudflare's edge geo, fetches the user's **live, in-region** offers (Besitos *Games User Data API*), picks one, mints a `/go/<link_id>` row, and returns `{ title, reward_usd_total, go_url }`. The nudge serves this from a short-TTL local cache (~2 min), so only a cold/empty cache makes the call — every other prompt renders instantly.
 3. **Plugin renders a QR** of the `go_url` plus a named card (game title + reward). The QR is drawn from Node with a generous fetch timeout, so a slow/cold backend can never hang the prompt — on failure the nudge just stays silent.
 4. **Phone scans → `GET /go/<link_id>`.** The backend detects the **scanning device's** platform (User-Agent) and country (edge geo), **re-resolves a currently-live offer for that exact `(country, platform)`**, and `302`s to the Besitos tracking URL (with our `partner_user_id`), which forwards to the App Store / Play Store. The click is logged and a session recorded.
-5. **Install & play.** Besitos fires goal-completion postbacks → the ledger credits `payout × REWARD_SHARE`. `/wallet` shows the balance. On the **next** prompt after rewards land, the nudge leads with a one-time `+$X earned while you coded` topper (see below), then the QR.
+5. **Install & play.** Besitos fires goal-completion postbacks → the ledger credits a flat `REWARD_CREDITS` (default `10`) per confirmed action, regardless of payout (the real payout is recorded internally as `payout_usd`). `/wallet` shows the balance. On the **next** prompt after rewards land, the nudge leads with a one-time `+N credits earned while you coded` topper (see below), then the QR.
 
 The QR always encodes **our** `/go/<id>`, never a raw Besitos link. That indirection is what lets the offer be **resolved at scan time** — so it's always current and correct for the device/region that actually scanned, even if the QR was generated minutes earlier.
 
@@ -127,12 +127,18 @@ We integrate **Games only** (the Games User Data API). Besitos' catalog also inc
 
 ## Payout model
 
-Our USD payout per install is the **offer-level `cpi`**; goals carry only a user-facing `amount` (display-currency weight), **not** USD. So:
+Rewards are **credits**, not real money. Every confirmed conversion grants a **flat
+reward** (`REWARD_CREDITS`, default `10`), independent of the offer's value. So:
 
-- `reward_usd_total = cpi × REWARD_SHARE`
-- per-goal `reward_usd` = that total split proportionally by goal `amount` (a goal with `amount: 0`, e.g. the install step, shows `$0` — faithful to the data)
+- `reward_usd_total` = the flat reward (every game advertises the same `10 credits`)
+- goals are milestones, not per-goal payout splits — each goal you hit fires a
+  postback worth the flat reward
 
-The pre-play figure is a **max-earnable estimate**; the authoritative per-conversion USD is whatever Besitos sends in the postback `payout`. We never expose `cpi`/our payout to the plugin — only the user's share. USD is rounded to cents at write time; balance is `SUM(amount_usd)` with reversals stored negative.
+We never expose the offer's `cpi`/our payout to the plugin. Internally the backend
+still records the **real Besitos payout** we received (`payout_usd`) for our own
+revenue accounting, while the user is credited the flat reward (`amount_usd`).
+Balance is `SUM(amount_usd)` with reversals stored negative — the user's credits
+just keep filling as they play.
 
 ---
 
@@ -179,7 +185,7 @@ The pre-play figure is a **max-earnable estimate**; the authoritative per-conver
 | Domain | `hamster.win` (custom-domain route in `wrangler.jsonc`; needs the zone in the CF account) |
 | Cloudflare account | `<your-cloudflare-account>` |
 | D1 database | `play-to-win` (id in `wrangler.jsonc` → `database_id`) |
-| Vars | `REWARD_SHARE=0.5`, `MOCK_BESITOS=0` |
+| Vars | `REWARD_CREDITS=10`, `MOCK_BESITOS=0` |
 | Secrets | `BESITOS_API_TOKEN`, `BESITOS_PARTNER_ID`, `BESITOS_WEBHOOK_SECRET` |
 | Cron | daily reconcile `0 6 * * *` |
 
@@ -192,6 +198,6 @@ Verified live: `/v1/featured` returns real in-region offers via the User Data AP
 - **Open registration** — `/v1/register` mints tokens with no auth (v0), and the plugin now auto-registers on first run, so every install creates a user. Gate it (invite codes / attestation / rate limiting) before real payouts; the webhook HMAC guards *crediting*, but registration guards who can hold a balance.
 - **Region lock** — the phone must be in a Besitos-supported region; we detect/serve correctly per region but can't bypass Besitos' IP check.
 - **Attribution without IDFA** — a web/QR click can't pass a device advertising id, so conversion matching relies on Besitos' click→install pipeline (and some inventory may require a device id). Validate fill/attribution rates with the account manager early.
-- **Commercials** — Besitos rev-share, minimums, and payment timing are negotiated, not documented; `REWARD_SHARE` (default `0.5`) is just the knob.
+- **Commercials** — Besitos rev-share, minimums, and payment timing are negotiated, not documented. We credit users a flat `REWARD_CREDITS` (default `10`) per confirmed action while recording the real Besitos `payout_usd`, so the credit cost is decoupled from per-offer payout.
 - **Paying users out** — this system tracks the ledger; actual payouts (Stripe/etc.) are not built.
 - **`/play` keystroke driving is best-effort** — the mirror exposes nothing to Accessibility, so timing is delay-based and unverifiable; fallbacks exist everywhere. EU has no iPhone Mirroring (QR path still works).
